@@ -131,6 +131,7 @@ def load_splitted_data(split_strategy="final_weeks", split_size_w=4, week_select
         # Remove the extra data from the beginning of the dataset to start on a Monday
         raw_dmas_h_cons = raw_dmas_h_cons.loc[raw_dmas_h_cons.index >= '2021-01-04',:]
         raw_weather_h = raw_weather_h.loc[raw_weather_h.index >= '2021-01-04',:]
+        index_week = index_week.loc[index_week.index >= '2021-01-04']
 
     # Split the data
     if split_strategy == "final_weeks":

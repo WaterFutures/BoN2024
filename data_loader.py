@@ -123,7 +123,7 @@ def load_splitted_data(split_strategy="final_weeks", split_size_w=4, week_select
         if raw_dmas_h_cons.index[i].dayofweek == 0 and raw_dmas_h_cons.index[i-1].dayofweek == 6:
             week_n_from_beginning += 1
 
-        index_week[i] = week_n_from_beginning
+        index_week.iloc[i] = week_n_from_beginning
 
     weeks_range = range(1, index_week.max()) # from 1 to n_weeks, I don't want to use week 0 as test set
 
@@ -165,3 +165,22 @@ def load_splitted_data(split_strategy="final_weeks", split_size_w=4, week_select
     test_weather_h = raw_weather_h.loc[test_indices,:]
 
     return train_dmas_h_cons, test_dmas_h_cons, train_weather_h, test_weather_h
+
+def dataset_week_number(a_date):
+    """
+    Return the number of the week in our dataset.
+    The first 3 days are Friday, Saturday and Sunday so they are given the number 0.
+    The fist week starting from Monday 4th is given the number 1 and so on.
+    """
+    begin_date = pd.to_datetime('2021-01-04')
+    if a_date < begin_date:
+        return 0
+    
+    return int((a_date - begin_date).days/7)+1
+
+def monday_of_week_number(a_week_number):
+    """
+    Return the date of the Monday of the specified week.
+    """
+    begin_date = pd.to_datetime('2021-01-04')
+    return begin_date + pd.Timedelta(days=(a_week_number-1)*7)

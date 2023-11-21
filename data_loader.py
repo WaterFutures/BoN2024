@@ -84,3 +84,8 @@ def load_original_data():
     calendar.loc['2023-03-26', 'SummerTime'] = 1
 
     return raw_dmas_h_cons, raw_weather_h, calendar, dmas_characteristics
+
+
+
+if __name__ == "__main__":
+    a=load_original_data()

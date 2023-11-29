@@ -184,3 +184,7 @@ def monday_of_week_number(a_week_number):
     """
     begin_date = pd.to_datetime('2021-01-04')
     return begin_date + pd.Timedelta(days=(a_week_number-1)*7)
+
+if __name__ == "__main__":
+    a=load_original_data()
+    

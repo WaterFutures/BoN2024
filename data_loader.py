@@ -20,10 +20,12 @@ def load_calendar():
 
     return calendar
 
+DMAS_NAMES = ['DMA_A', 'DMA_B', 'DMA_C', 'DMA_D', 'DMA_E', 'DMA_F', 'DMA_G', 'DMA_H', 'DMA_I', 'DMA_J']
+
 def load_characteristics():
     dma_characts_json = {
         'name_short':['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'], 
-        'name_long': ['DMA_A', 'DMA_B', 'DMA_C', 'DMA_D', 'DMA_E', 'DMA_F', 'DMA_G', 'DMA_H', 'DMA_I', 'DMA_J'],
+        'name_long': DMAS_NAMES,
         'description' : ['Hospital district', 'Residential district in the countryside', 'Residential district in the countryside',
                         'Suburban residential/commercial district', 'Residential/commercial district close to the city centre',
                         'Suburban district including sport facilities and office buildings', 'Residential district close to the city centre',

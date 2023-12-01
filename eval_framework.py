@@ -249,8 +249,10 @@ class WaterFuturesEvaluator:
         )
 
         for test_week in test_weeks:
-            test__df = pd.concat(
-                [train__dmas_h_q, train__exin_h, test__exin_h.iloc[:(test_week+1)*WEEK_LEN,:] ],
+            test__df = pd.concat([
+                pd.concat([train__dmas_h_q, test__dmas_h_q.iloc[:test_week*WEEK_LEN, :] ], axis=0),
+                pd.concat([train__exin_h, test__exin_h.iloc[:(test_week+1)*WEEK_LEN,:] ], axis=0)
+                ],
                  axis=1)
             
             y_pred = model.forecast(test__df)

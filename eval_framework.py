@@ -36,9 +36,13 @@ import data_loader
 import pandas as pd
 from constants import DAY_LEN, WEEK_LEN
 
-def performance_indicator_1(dmas_h_q_true, dmas_h_q_pred):
+def performance_indicator_1(dmas_h_q_true: np.ndarray, dmas_h_q_pred: np.ndarray) -> np.ndarray:
     """
     PI1^d MAE: Mean Absolute Error in the first 24 hours of the week for DMA d.
+
+    :param dmas_h_q_true: The true data for the week to test as a numpy array, with shape (24*7, n_dmas).
+    :param dmas_h_q_pred: The forecasted data for the week to test as a numpy array, with shape (24*7, n_dmas).
+    :return: The result for each DMA as a numpy array with size n_dmas.
     """
     # Check that the forecast and actual data have the same shape and index
     assert dmas_h_q_true.shape == dmas_h_q_pred.shape
@@ -47,21 +51,28 @@ def performance_indicator_1(dmas_h_q_true, dmas_h_q_pred):
     
     return mean_absolute_error(dmas_h_q_true[:24], dmas_h_q_pred[:24], multioutput='raw_values')
 
-def performance_indicator_2(dmas_h_q_true, dmas_h_q_pred):
+def performance_indicator_2(dmas_h_q_true: np.ndarray, dmas_h_q_pred: np.ndarray) -> np.ndarray:
     """
     PI2^d MaxAE: Max Absolute Error in the first 24 hours of the week for DMA d.
+
+    :param dmas_h_q_true: The true data for the week to test as a numpy array, with shape (24*7, n_dmas).
+    :param dmas_h_q_pred: The forecasted data for the week to test as a numpy array, with shape (24*7, n_dmas).
+    :return: The result for each DMA as a numpy array with size n_dmas.
     """
     # Check that the forecast and actual data have the same shape and index
     assert dmas_h_q_true.shape == dmas_h_q_pred.shape
     assert dmas_h_q_true.shape[0] == 24*7   # 24 hours per day, 7 days per week
     assert dmas_h_q_true.shape[1] > 0       # at least one DMA
-
     
     return np.amax(np.abs(dmas_h_q_true[:24] - dmas_h_q_pred[:24]), axis=0)
 
-def performance_indicator_3(dmas_h_q_true, dmas_h_q_pred):
+def performance_indicator_3(dmas_h_q_true: np.ndarray, dmas_h_q_pred: np.ndarray) -> np.ndarray:
     """
     PI3^d MAE: Mean Absolute Error after the first 24 hours to the end of the week for DMA d.
+    
+    :param dmas_h_q_true: The true data for the week to test as a numpy array, with shape (24*7, n_dmas).
+    :param dmas_h_q_pred: The forecasted data for the week to test as a numpy array, with shape (24*7, n_dmas).
+    :return: The result for each DMA as a numpy array with size n_dmas.
     """
     # Check that the forecast and actual data have the same shape and index
     assert dmas_h_q_true.shape == dmas_h_q_pred.shape
@@ -70,12 +81,13 @@ def performance_indicator_3(dmas_h_q_true, dmas_h_q_pred):
 
     return mean_absolute_error(dmas_h_q_true[24:24*7], dmas_h_q_pred[24:24*7], multioutput='raw_values')
 
-def performance_indicators(dmas_h_q_true, dmas_h_q_pred):
+def performance_indicators(dmas_h_q_true: np.ndarray, dmas_h_q_pred: np.ndarray) -> dict[str, np.ndarray] :
     """
     Test the model on a single week.
 
-    :param dmas_h_q_pred: The forecasted data for the week to test.
-    :return: A Pandas dataframe with index the DMAs and columns the perfromances indicators.
+    :param dmas_h_q_true: The true data for the week to test as a numpy array, with shape (24*7, n_dmas).
+    :param dmas_h_q_pred: The forecasted data for the week to test as a numpy array, with shape (24*7, n_dmas).
+    :return: The result for each DMA as a numpy array with size n_dmas.
     """
     # Check that the forecast and actual data have the same shape and index
     assert dmas_h_q_true.shape == dmas_h_q_pred.shape
@@ -98,7 +110,7 @@ def performance_indicators(dmas_h_q_true, dmas_h_q_pred):
             'n_nans_1d': nans_true[:24].sum(axis=0),
             'n_nans_w': nans_true.sum(axis=0)}
 
-def ModelResults():
+def ModelResults() -> dict:
     """
     Return a dictionary with all the necessary information to describe the whole 
     process to evaluate a model.
@@ -132,14 +144,14 @@ def ModelResults():
 
 class WaterFuturesEvaluator:
 
-    def __init__(self):
+    def __init__(self) -> None:
         (self.__train__dmas_h_q, self.__test__dmas_h_q, 
         self.__train__exin_h, self.__test__exin_h, self.__eval__exin_h) = data_loader.load_splitted_data(
             split_strategy="final_weeks", split_size_w=4, start_first_monday=True)
         self.__models_results = {}
         self.__pis = ['PI1', 'PI2', 'PI3', 'n_nans_1d', 'n_nans_w']
         
-    def add_model(self, model):
+    def add_model(self, model) -> None:
         """
         Add a model to the evaluator.
 
@@ -167,7 +179,7 @@ class WaterFuturesEvaluator:
         # todo forecast on bwdf data
 
 
-    def train(self, model):
+    def train(self, model) -> pd.DataFrame:
         """
         Train the model on all the weeks in the training set.
 
@@ -216,7 +228,7 @@ class WaterFuturesEvaluator:
         return results
 
 
-    def evaluate(self, model):
+    def evaluate(self, model) -> pd.DataFrame:
         """
         Evaluate the model on all the weeks in the test set.
 
@@ -256,3 +268,28 @@ class WaterFuturesEvaluator:
             
             
         return results
+
+    def bwdf_forecast(self, model) -> pd.DataFrame:
+        """
+        Forecast the model on all the weeks in the BWDF dataset.
+
+        :param model: The model to forecast.
+        :return: A Pandas dataframe with index the DMAs and columns the forecasted dmas.
+        """
+        pass
+
+    def results(self) -> dict:
+        """
+        Return the results of the evaluation.
+
+        :return: A dictionary with the results of the evaluation.
+        """
+        return self.__models_results
+    
+    def result(self, model_name: str) -> dict:
+        """
+        Return the results of the evaluation for a specific model.
+
+        :return: A dictionary with the results of the evaluation for the model.
+        """
+        return self.__models_results[model_name]

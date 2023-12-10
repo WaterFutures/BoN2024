@@ -37,21 +37,3 @@ class DataProcessor:
         # compute all additional encodings (e.g. climate, time, ...)
         encs = torch.cat([ fn(sample) for fn in self.encoders ], dim=-2)
         return encs
-
-class AutoregressiveTransform:
-
-    def __init__(self, seed_len, target_length):
-        # seed length determines the number of timesteps that the model is conditioned on
-        self.seed_len = seed_len
-
-    def __call__(self, sample):
-        demand = sample['demand']
-        # compute all additional encodings (e.g. climate, time, ...)
-        encs = torch.cat([ fn(sample) for fn in self.encoders ], dim=-2)
-        # concat additional encodings to demand signal
-        processed = torch.cat([demand, encs], dim=-2)
-        predict_values_mask = torch.cat([
-            torch.ones_like(demand, dtype=torch.bool), 
-            torch.zeros_like(encs, dtype=torch.bool)], 
-        dim=-2)
-        return processed, predict_values_mask

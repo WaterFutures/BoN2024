@@ -2,6 +2,8 @@ import pandas as pd
 import os 
 from sklearn.model_selection import train_test_split
 
+from constants import WEEK_LEN
+
 def load_calendar():
     # Calendar, with holidays and weekends
     dates = pd.date_range(start='2021-01-01', end='2023-03-31', freq='D')
@@ -20,10 +22,12 @@ def load_calendar():
 
     return calendar
 
+DMAS_NAMES = ['DMA_A', 'DMA_B', 'DMA_C', 'DMA_D', 'DMA_E', 'DMA_F', 'DMA_G', 'DMA_H', 'DMA_I', 'DMA_J']
+
 def load_characteristics():
     dma_characts_json = {
         'name_short':['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'], 
-        'name_long': ['DMA_A', 'DMA_B', 'DMA_C', 'DMA_D', 'DMA_E', 'DMA_F', 'DMA_G', 'DMA_H', 'DMA_I', 'DMA_J'],
+        'name_long': DMAS_NAMES,
         'description' : ['Hospital district', 'Residential district in the countryside', 'Residential district in the countryside',
                         'Suburban residential/commercial district', 'Residential/commercial district close to the city centre',
                         'Suburban district including sport facilities and office buildings', 'Residential district close to the city centre',
@@ -110,37 +114,55 @@ def load_splitted_data(split_strategy="final_weeks", split_size_w=4, week_select
 
     The input dataset is loaded as a Pandas DataFrame with load_original_data().
     """
-    raw_dmas_h_cons, raw_weather_h, _, _ = load_original_data()
+    raw_dmas_h_cons, raw_weather_h, calendar_d, _ = load_original_data()
 
-    # Remove the extra data from the end of the weather dataset
+    # Use the last week as eval    
     max_date = raw_dmas_h_cons.index.max()
+    eval_wea_h = raw_weather_h.loc[raw_weather_h.index > max_date,:]
+    assert eval_wea_h.shape[0] == 24*7, "The evaluation week is not complete"
     raw_weather_h = raw_weather_h.loc[raw_weather_h.index <= max_date,:]
+    calendar_d = calendar_d.loc[calendar_d.index <= max_date,:]
 
-    index_week = pd.Series(0, index=raw_dmas_h_cons.index)
-    # assign to each measurement the week number
-    week_n_from_beginning = 0
-    for i in range(1, len(raw_dmas_h_cons.index), 1):
-        if raw_dmas_h_cons.index[i].dayofweek == 0 and raw_dmas_h_cons.index[i-1].dayofweek == 6:
-            week_n_from_beginning += 1
-
-        index_week.iloc[i] = week_n_from_beginning
-
-    weeks_range = range(1, index_week.max()) # from 1 to n_weeks, I don't want to use week 0 as test set
-
+    # Remove the extra data from the beginning of the dataset to start on a Monday
     if start_first_monday:
-        # Remove the extra data from the beginning of the dataset to start on a Monday
         raw_dmas_h_cons = raw_dmas_h_cons.loc[raw_dmas_h_cons.index >= '2021-01-04',:]
         raw_weather_h = raw_weather_h.loc[raw_weather_h.index >= '2021-01-04',:]
-        index_week = index_week.loc[index_week.index >= '2021-01-04']
+        calendar_d = calendar_d.loc[calendar_d.index >= '2021-01-04',:]
 
+    # Fix the summer-winter change in the hours
+    switch_dates = calendar_d.loc[calendar_d['SummerTime'] != 0,:].index
+    for a_date in switch_dates:
+        if calendar_d.loc[a_date,'SummerTime'] == 1:
+            # It's spring I go from 2 am to 3 am, hence I skip the 2 am of that date
+            # add a row of nans at 2 am of that date
+            if (a_date+pd.Timedelta(hours=2)) not in raw_dmas_h_cons.index:
+                raw_dmas_h_cons.loc[a_date+pd.Timedelta(hours=2),:] = float('nan')
+            if (a_date+pd.Timedelta(hours=2)) not in raw_weather_h.index:
+                raw_weather_h.loc[a_date+pd.Timedelta(hours=2),:] = float('nan')
+        else:
+            # It's autumn I go from 3 am to 2 am, hence I have 2 am twice            
+            # average the two values at 2 am of that date
+            if (a_date+pd.Timedelta(hours=2)) in raw_dmas_h_cons.index:
+                dmas_q_2am = raw_dmas_h_cons.loc[a_date+pd.Timedelta(hours=2),:].mean(axis=0)
+                raw_dmas_h_cons.drop(a_date+pd.Timedelta(hours=2), inplace=True)
+                raw_dmas_h_cons.loc[a_date+pd.Timedelta(hours=2),:] = dmas_q_2am
+            if (a_date+pd.Timedelta(hours=2)) in raw_weather_h.index:
+                wea_2am = raw_weather_h.loc[a_date+pd.Timedelta(hours=2),:].mean(axis=0)
+                raw_weather_h.drop(a_date+pd.Timedelta(hours=2), inplace=True)
+                raw_weather_h.loc[a_date+pd.Timedelta(hours=2),:] = wea_2am
+
+    # sort the data
+    raw_dmas_h_cons.sort_index(inplace=True)
+    raw_weather_h.sort_index(inplace=True)
+           
     # Split the data
     if split_strategy == "final_weeks":
-        test_weeks = range(index_week.max()-split_size_w+1, index_week.max()+1)
+        test_weeks = range(dataset_week_number(max_date)+1-split_size_w, dataset_week_number(max_date)+1)
         
     elif split_strategy == "random_weeks":
         # Use scikit learn train_test_split
-        _, test_weeks = train_test_split(weeks_range, test_size=split_size_w, shuffle=True, random_state=42)
-        
+        raise ValueError("Not implemented yet")
+    
     elif split_strategy == "custom1":
         # Here I want to use some specific weeks for testing to "overfit" what we will forecast
         # E.g., the previous week and the same week of the previous year
@@ -152,19 +174,23 @@ def load_splitted_data(split_strategy="final_weeks", split_size_w=4, week_select
         raise ValueError("Unknown split strategy: " + split_strategy)
     
     # Split the data
+    test_indices = pd.Series(False, index=raw_dmas_h_cons.index)
     if week_selection > 0:
         # should check index but let's use it to throw errors 
         test_weeks = test_weeks[week_selection-1] 
-        test_indices = index_week == test_weeks
+        test_indices[test_indices.index >= monday_of_week_number(test_weeks) & 
+                     test_indices.index < monday_of_week_number(test_weeks+1)] = True
     else:
-        test_indices = index_week.isin(test_weeks)
+        for a_week in test_weeks:
+            test_indices[(test_indices.index >= monday_of_week_number(a_week)) & 
+                         (test_indices.index < monday_of_week_number(a_week+1))] = True
     
     train_dmas_h_cons = raw_dmas_h_cons.loc[~test_indices,:]
     test_dmas_h_cons = raw_dmas_h_cons.loc[test_indices,:]
     train_weather_h = raw_weather_h.loc[~test_indices,:]
     test_weather_h = raw_weather_h.loc[test_indices,:]
 
-    return train_dmas_h_cons, test_dmas_h_cons, train_weather_h, test_weather_h
+    return train_dmas_h_cons, test_dmas_h_cons, train_weather_h, test_weather_h, eval_wea_h
 
 def dataset_week_number(a_date):
     """

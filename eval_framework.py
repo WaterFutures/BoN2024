@@ -34,103 +34,329 @@ import numpy as np
 from sklearn.metrics import mean_absolute_error, max_error
 import data_loader
 import pandas as pd
+from constants import DAY_LEN, WEEK_LEN
+import plotly.express as px
+import plotly.graph_objects as go
+from dash import Dash, html, dcc, callback, Output, Input
 
-def performance_indicator_1(dmas_h_q_true, dmas_h_q_pred):
+def performance_indicator_1(dmas_h_q_true: np.ndarray, dmas_h_q_pred: np.ndarray) -> np.ndarray:
     """
     PI1^d MAE: Mean Absolute Error in the first 24 hours of the week for DMA d.
+
+    :param dmas_h_q_true: The true data for the week to test as a numpy array, with shape (24*7, n_dmas).
+    :param dmas_h_q_pred: The forecasted data for the week to test as a numpy array, with shape (24*7, n_dmas).
+    :return: The result for each DMA as a numpy array with size n_dmas.
     """
     # Check that the forecast and actual data have the same shape and index
     assert dmas_h_q_true.shape == dmas_h_q_pred.shape
     assert dmas_h_q_true.shape[0] == 24*7   # 24 hours per day, 7 days per week
     assert dmas_h_q_true.shape[1] > 0       # at least one DMA
     
-    return mean_absolute_error(dmas_h_q_true.head(24), dmas_h_q_pred.head(24), multioutput='raw_values')
+    return mean_absolute_error(dmas_h_q_true[:24], dmas_h_q_pred[:24], multioutput='raw_values')
 
-def performance_indicator_2(dmas_h_q_true, dmas_h_q_pred):
+def performance_indicator_2(dmas_h_q_true: np.ndarray, dmas_h_q_pred: np.ndarray) -> np.ndarray:
     """
     PI2^d MaxAE: Max Absolute Error in the first 24 hours of the week for DMA d.
+
+    :param dmas_h_q_true: The true data for the week to test as a numpy array, with shape (24*7, n_dmas).
+    :param dmas_h_q_pred: The forecasted data for the week to test as a numpy array, with shape (24*7, n_dmas).
+    :return: The result for each DMA as a numpy array with size n_dmas.
     """
     # Check that the forecast and actual data have the same shape and index
     assert dmas_h_q_true.shape == dmas_h_q_pred.shape
     assert dmas_h_q_true.shape[0] == 24*7   # 24 hours per day, 7 days per week
     assert dmas_h_q_true.shape[1] > 0       # at least one DMA
-
-    pi2 = np.zeros(dmas_h_q_true.shape[1])
-    for i in range(dmas_h_q_true.shape[1]):
-        pi2[i] = max_error(dmas_h_q_true.iloc[0:24,i], dmas_h_q_pred.iloc[0:24,i] )
     
-    return pi2
+    return np.amax(np.abs(dmas_h_q_true[:24] - dmas_h_q_pred[:24]), axis=0)
 
-def performance_indicator_3(dmas_h_q_true, dmas_h_q_pred):
+def performance_indicator_3(dmas_h_q_true: np.ndarray, dmas_h_q_pred: np.ndarray) -> np.ndarray:
     """
     PI3^d MAE: Mean Absolute Error after the first 24 hours to the end of the week for DMA d.
+    
+    :param dmas_h_q_true: The true data for the week to test as a numpy array, with shape (24*7, n_dmas).
+    :param dmas_h_q_pred: The forecasted data for the week to test as a numpy array, with shape (24*7, n_dmas).
+    :return: The result for each DMA as a numpy array with size n_dmas.
     """
     # Check that the forecast and actual data have the same shape and index
     assert dmas_h_q_true.shape == dmas_h_q_pred.shape
     assert dmas_h_q_true.shape[0] == 24*7   # 24 hours per day, 7 days per week
     assert dmas_h_q_true.shape[1] > 0       # at least one DMA
 
-    return mean_absolute_error(dmas_h_q_true.iloc[24:24*7,:], dmas_h_q_pred.iloc[24:24*7,:], multioutput='raw_values')
+    return mean_absolute_error(dmas_h_q_true[24:24*7], dmas_h_q_pred[24:24*7], multioutput='raw_values')
 
-def performance_indicators(dmas_h_q_true, dmas_h_q_pred):
+def performance_indicators(dmas_h_q_true: np.ndarray, dmas_h_q_pred: np.ndarray) -> dict[str, np.ndarray] :
     """
     Test the model on a single week.
 
-    :param dmas_h_q_pred: The forecasted data for the week to test.
-    :return: A Pandas dataframe with index the DMAs and columns the perfromances indicators.
+    :param dmas_h_q_true: The true data for the week to test as a numpy array, with shape (24*7, n_dmas).
+    :param dmas_h_q_pred: The forecasted data for the week to test as a numpy array, with shape (24*7, n_dmas).
+    :return: The result for each DMA as a numpy array with size n_dmas.
     """
     # Check that the forecast and actual data have the same shape and index
     assert dmas_h_q_true.shape == dmas_h_q_pred.shape
     assert dmas_h_q_true.shape[0] == 24*7   # 24 hours per day, 7 days per week
-    assert dmas_h_q_true.shape[1] == 10     # 10 DMAs
+    assert dmas_h_q_true.shape[1] > 0      # at least one DMA
+
+    # We decided to not include the nans in the counts 
+
+    # Find the nans in the true data, then put thme to 0 both in the true and 
+    # predicted data
+    nans_true = np.isnan(dmas_h_q_true)
+    dmas_h_q_true[nans_true] = 0
+    dmas_h_q_pred[nans_true] = 0
 
     pi1 = performance_indicator_1(dmas_h_q_true, dmas_h_q_pred)
     pi2 = performance_indicator_2(dmas_h_q_true, dmas_h_q_pred)
     pi3 = performance_indicator_3(dmas_h_q_true, dmas_h_q_pred)
 
-    return pd.DataFrame({'PI1':pi1, 'PI2':pi2, 'PI3':pi3}, index=dmas_h_q_true.columns)
+    return {'PI1':pi1, 'PI2':pi2, 'PI3':pi3,
+            'n_nans_1d': nans_true[:24].sum(axis=0),
+            'n_nans_w': nans_true.sum(axis=0)}
 
-def test_model(dmas_h_q_true, dmas_h_q_pred):
+def ModelResults() -> dict:
     """
-    Test the model on all the weeks in the test set and store the results.
+    Return a dictionary with all the necessary information to describe the whole 
+    process to evaluate a model.
 
-    :param dmas_h_q_pred: The forecasted data for the week to test.
-    :return: A Pandas dataframe with index the DMAs and columns the perfromances indicators.
+    Processed data used for training
+        train and test, for each type of variable (dma consumption and exogenous), 
+        eval, for exogenous variables always known at time t (e.g., weather)
+    Model
+    Validation results pandas dataframe with multiindex (test week, dma) and columns
+        the performance indicators
+    Test results pandas dataframe with multiindex (test week, dma) and columns
+        the performance indicators
+    BWDF forecast results pandas dataframe with index the week we need to forecast 
+        and columns the DMAs
+    
+    :return: A dictionary with the structure of the results of a model.
     """
-    # Check that the forecast and actual data have the same shape and index
-    assert dmas_h_q_true.shape == dmas_h_q_pred.shape
-    assert dmas_h_q_true.shape[1] == 10     # 10 DMAs
+    return {
+        "processed_data": {
+            "train__dmas_h_q": None, 
+            "test__dmas_h_q": None,
+            "train__exin_h": None,
+            "test__exin_h": None,
+            "eval__exin_h": None
+        },
+        "model": None,
+        "validation": None,
+        "test": None,
+        "bwdf_forecast": None
+    }
 
-    # Get the week numbers 
-    n_test_weeks = int(len(dmas_h_q_true.index)/24/7)
-    test_weeks_idxs = np.zeros(n_test_weeks, dtype=int)
-    for i in range(0, n_test_weeks):
-        test_weeks_idxs[i] = data_loader.dataset_week_number(dmas_h_q_true.index[i*24*7])
+class WaterFuturesEvaluator:
 
-    result = pd.DataFrame(
-        index=pd.MultiIndex.from_tuples([(tw,dma) for tw in test_weeks_idxs for dma in dmas_h_q_true.columns], names=['Test week', 'DMA']),
-        columns=['PI1', 'PI2', 'PI3']
-    )
-    
-    for tw in range(0, n_test_weeks):
-        tw_dmas_h_q_true = dmas_h_q_true.iloc[tw*24*7:(tw+1)*24*7,:]
-        tw_dmas_h_q_pred = dmas_h_q_pred.loc[tw_dmas_h_q_true.index,:] # Just in case they don't have the same order
-        result.loc[test_weeks_idxs[tw],:] = performance_indicators(tw_dmas_h_q_true, tw_dmas_h_q_pred).values
-
-    return result
-
-class EvaluationLogger:
-    # No attributes for now 
-
-    def __init__(self, a_test_dmas_h_q):
-        self.m_test_dmas_h_q = a_test_dmas_h_q
-        self.m_results = {}
-    
-    def add_model_test(self, model_name, dmas_h_q_pred):
+    def __init__(self) -> None:
+        (self.__train__dmas_h_q, self.__test__dmas_h_q, 
+        self.__train__exin_h, self.__test__exin_h, self.__eval__exin_h) = data_loader.load_splitted_data(
+            split_strategy="final_weeks", split_size_w=4, start_first_monday=True)
+        self.__models_results = {}
+        self.__pis = ['PI1', 'PI2', 'PI3', 'n_nans_1d', 'n_nans_w']
+        self.app = None
+        
+    def add_model(self, model) -> None:
         """
-        Test the model on all the weeks in the test set and store the results.
+        Add a model to the evaluator.
 
-        :param dmas_h_q_pred: The forecasted data for the week to test.
+        :param model: The model to add.
+        """
+        self.__models_results[model.name()] = ModelResults()
+
+        (train__dmas_h_q, test__dmas_h_q, train__exin_h, test__exin_h, eval__exin_h) = model.preprocess_data(
+            self.__train__dmas_h_q, self.__test__dmas_h_q, self.__train__exin_h, self.__test__exin_h, self.__eval__exin_h)
+        
+        self.__models_results[model.name()]["processed_data"]["train__dmas_h_q"] = train__dmas_h_q
+        self.__models_results[model.name()]["processed_data"]["test__dmas_h_q"] = test__dmas_h_q
+        self.__models_results[model.name()]["processed_data"]["train__exin_h"] = train__exin_h
+        self.__models_results[model.name()]["processed_data"]["test__exin_h"] = test__exin_h
+        self.__models_results[model.name()]["processed_data"]["eval__exin_h"] = eval__exin_h
+
+        self.__models_results[model.name()]["model"] = model
+
+        training_results = self.train(model)
+        self.__models_results[model.name()]["validation"] = training_results
+
+        test_results = self.evaluate(model)
+        self.__models_results[model.name()]["test"] = test_results
+
+        # todo forecast on bwdf data
+
+
+    def train(self, model) -> pd.DataFrame:
+        """
+        Train the model on all the weeks in the training set.
+
+        :param model: The model to train.
         :return: A Pandas dataframe with index the DMAs and columns the perfromances indicators.
         """
-        self.m_results[model_name] = test_model(self.m_test_dmas_h_q, dmas_h_q_pred)
+        train__dmas_h_q = self.__models_results[model.name()]["processed_data"]["train__dmas_h_q"]
+        train__exin_h = self.__models_results[model.name()]["processed_data"]["train__exin_h"]
+
+        first_split_week = 8 # I don't think it makes sense starting before this week
+        # as 2 DMAS are full of nans until the 6th week
+
+        test_weeks = range(first_split_week, train__dmas_h_q.shape[0]//WEEK_LEN)
+        absolute_week_shift = 1
+
+        results = pd.DataFrame(
+            index=pd.MultiIndex.from_tuples([(tw+absolute_week_shift,dma) for tw in test_weeks for dma in model.forecasted_dmas()], names=['Test week', 'DMA']),
+            columns=self.__pis
+        )
+        
+        for split_week in test_weeks:
+        
+            train__df = pd.concat(
+                [train__dmas_h_q.iloc[:split_week*WEEK_LEN,:], train__exin_h.iloc[:split_week*WEEK_LEN,:]],
+                axis=1)
+            
+            model.fit(train__df)
+
+            # Evaluate the model on the validation set
+            vali__df = pd.concat(
+                [train__dmas_h_q.iloc[:(split_week+1)*WEEK_LEN,:], train__exin_h.iloc[:(split_week+1)*WEEK_LEN,:]],
+                axis=1)
+            
+            y_pred = model.forecast(vali__df)
+            assert y_pred.shape[0] == 24*7
+            assert y_pred.shape[1] == len(model.forecasted_dmas())
+            assert not np.isnan(y_pred).any()
+            
+            dmas_h_q_true = train__dmas_h_q.iloc[split_week*WEEK_LEN:(split_week+1)*WEEK_LEN, model.forecasted_dmas_idx()]
+            y_true = dmas_h_q_true.to_numpy()
+
+            # Store the results
+            result = performance_indicators(y_true, y_pred)
+            for pi in results.columns:
+                assert pi in result.keys()
+                results.loc[(split_week+absolute_week_shift,model.forecasted_dmas()), pi] = result[pi]
+        
+        return results
+
+
+    def evaluate(self, model) -> pd.DataFrame:
+        """
+        Evaluate the model on all the weeks in the test set.
+
+        :param model: The model to evaluate.
+        :return: A Pandas dataframe with index the DMAs and columns the perfromances indicators.
+        """
+        train__dmas_h_q = self.__models_results[model.name()]["processed_data"]["train__dmas_h_q"]
+        train__exin_h = self.__models_results[model.name()]["processed_data"]["train__exin_h"]
+        test__dmas_h_q = self.__models_results[model.name()]["processed_data"]["test__dmas_h_q"]
+        test__exin_h = self.__models_results[model.name()]["processed_data"]["test__exin_h"]
+        
+        test_weeks = range(0, test__dmas_h_q.shape[0]//WEEK_LEN)
+        absolute_week_shift = data_loader.dataset_week_number(test__dmas_h_q.index[0])
+        
+        results = pd.DataFrame(
+            index=pd.MultiIndex.from_tuples([(tw+absolute_week_shift,dma) for tw in test_weeks for dma in model.forecasted_dmas()], names=['Test week', 'DMA']),
+            columns=['PI1', 'PI2', 'PI3', 'n_nans_1d', 'n_nans_w']
+        )
+
+        for test_week in test_weeks:
+            test__df = pd.concat([
+                pd.concat([train__dmas_h_q, test__dmas_h_q.iloc[:test_week*WEEK_LEN, :] ], axis=0),
+                pd.concat([train__exin_h, test__exin_h.iloc[:(test_week+1)*WEEK_LEN,:] ], axis=0)
+                ],
+                 axis=1)
+            
+            y_pred = model.forecast(test__df)
+            assert y_pred.shape[0] == 24*7
+            assert y_pred.shape[1] == len(model.forecasted_dmas())
+            
+            dmas_h_q_true = test__dmas_h_q.iloc[test_week*WEEK_LEN:(test_week+1)*WEEK_LEN, model.forecasted_dmas_idx()]
+            y_true = dmas_h_q_true.to_numpy()
+
+            # Store the results
+            result = performance_indicators(y_true, y_pred)
+            for pi in results.columns:
+                assert pi in result.keys()
+                results.loc[(test_week+absolute_week_shift,model.forecasted_dmas()), pi] = result[pi]
+            
+            
+        return results
+
+    def bwdf_forecast(self, model) -> pd.DataFrame:
+        """
+        Forecast the model on all the weeks in the BWDF dataset.
+
+        :param model: The model to forecast.
+        :return: A Pandas dataframe with index the DMAs and columns the forecasted dmas.
+        """
+        pass
+
+    def results(self) -> dict:
+        """
+        Return the results of the evaluation.
+
+        :return: A dictionary with the results of the evaluation.
+        """
+        return self.__models_results
+    
+    def result(self, model_name: str) -> dict:
+        """
+        Return the results of the evaluation for a specific model.
+
+        :return: A dictionary with the results of the evaluation for the model.
+        """
+        return self.__models_results[model_name]
+    
+    def models_names(self) -> list[str]:
+        """
+        Return the names of the models evaluated.
+
+        :return: A list with the names of the models evaluated.
+        """
+        return list(self.__models_results.keys())
+    
+    def run_dashboard(self) -> None:
+        """
+        Run the dashboard to visualize the results.
+        """
+        self.app = Dash(__name__)
+
+        self.app.layout = html.Div([
+            html.H1(children='Water Futures Evaluator Dashboard', style={'textAlign': 'center'}),
+            html.Div([
+                html.Div([
+                    html.Div(children='Select the performance indicator to visualize:'),
+                    dcc.Dropdown(['PI1', 'PI2', 'PI3'], 'PI1', id='pi-dropdown'),
+                    html.Div(children={}, id='pi-description')
+                ], style={'width': '48%', 'display': 'inline-block'}),
+                html.Div([
+                    html.Div(children='Select the DMA to visualize:'),
+                    dcc.Dropdown(data_loader.DMAS_NAMES, data_loader.DMAS_NAMES[0], id='dma-dropdown'),
+                    html.Div(children={}, id='dma-description')
+                ], style={'width': '48%', 'float': 'right', 'display': 'inline-block'}),
+            ]),
+            dcc.Graph(id='graph-content'),
+            dcc.Checklist(
+                id="model-checklist",
+                options=self.models_names(),
+                value=[self.models_names()[0]],
+                inline=True
+            )
+        ])
+
+        @callback(
+            Output('graph-content', 'figure'),
+            Output('dma-description', 'children'),
+            Output('pi-description', 'children'),
+            Input('dma-dropdown', 'value'),
+            Input('pi-dropdown', 'value'),
+            Input('model-checklist', 'value')
+        )
+        def update_graph(dma, pi, model_names):
+            fig = go.Figure()
+            
+            for model_name in model_names:
+                vali_df = self.__models_results[model_name]["validation"]
+                vali__weeks = vali_df.index.get_level_values(0).unique()
+                vali__dma_pi = vali_df.xs(dma, level=1).loc[:,pi]
+                fig.add_trace(go.Scatter(x=vali__weeks, y=vali__dma_pi, name=model_name, mode='lines'))
+            
+            fig.update_layout(title=dma, xaxis_title='Week', yaxis_title='MAE [L/s]')
+            return fig, "DMA: {}".format(dma), "Performance Indicator: {}".format(pi)
+
+        self.app.run(debug=True)

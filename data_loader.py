@@ -1,6 +1,7 @@
 import pandas as pd
 import os 
 from sklearn.model_selection import train_test_split
+import holidays
 
 from constants import WEEK_LEN
 
@@ -11,8 +12,15 @@ def load_calendar():
     calendar['Holiday'] = 0
     calendar['Weekend'] = 0
     calendar['SummerTime'] = 0
-    holidays = ['2021-01-01', '2021-01-06','2021-04-04','2021-04-05'] #TODO: add all holidays
-    calendar.loc[holidays, 'Holiday'] = 1
+
+    # Get public holidays for italy
+    holidays_italy = holidays.IT(years=calendar.index.year.unique())
+    holidays_italy = list(holidays_italy.keys())
+    holidays_italy = set(holidays_italy).intersection(calendar.index.date)
+    calendar.loc[list(holidays_italy), 'Holiday'] = 1
+
+    # holidays = ['2021-01-01', '2021-01-06','2021-04-04','2021-04-05'] 
+    # calendar.loc[holidays, 'Holiday'] = 1
     calendar.loc[:, 'Weekend'] = calendar.index.dayofweek.isin([5, 6]).astype(int)
     calendar.loc['2021-03-28', 'SummerTime'] = 1
     calendar.loc['2021-10-31', 'SummerTime'] = -1

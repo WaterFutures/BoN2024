@@ -35,6 +35,12 @@ from sklearn.metrics import mean_absolute_error, max_error
 import data_loader
 import pandas as pd
 from constants import DAY_LEN, WEEK_LEN
+import plotly.express as px
+import plotly.graph_objects as go
+from dash import Dash, html, dcc, callback, Output, Input
+import pickle
+import os
+import pathlib
 
 def performance_indicator_1(dmas_h_q_true: np.ndarray, dmas_h_q_pred: np.ndarray) -> np.ndarray:
     """
@@ -150,13 +156,37 @@ class WaterFuturesEvaluator:
             split_strategy="final_weeks", split_size_w=4, start_first_monday=True)
         self.__models_results = {}
         self.__pis = ['PI1', 'PI2', 'PI3', 'n_nans_1d', 'n_nans_w']
+        self.app = None
+        self.__results_folder = os.path.join(pathlib.Path(__file__).parent.resolve(), 'wfe_results')
+        if not os.path.exists(self.__results_folder):
+            os.makedirs(self.__results_folder)
+        self.load_saved_results()
+
+
+    def load_saved_results(self):
+        """
+        Load results already saved in results folder.
+        """
+        files = os.listdir(self.__results_folder)
+        for cur_file in files:
+            cur_file_path = os.path.join(self.__results_folder, cur_file)
+            cur_model_name = '.'.join(cur_file.split('.')[:-1])
+            with open(cur_file_path, 'rb') as f:
+                self.__models_results[cur_model_name] = pickle.load(f)
+
         
-    def add_model(self, model) -> None:
+    def add_model(self, model, force=False) -> None:
         """
         Add a model to the evaluator.
 
         :param model: The model to add.
+        :param force: Force re-compute the model even if it's results already exist.
         """
+
+        # Check force condition and skip computation if desired
+        if (not force) and (model.name() in self.__models_results.keys()):
+            return
+        
         self.__models_results[model.name()] = ModelResults()
 
         (train__dmas_h_q, test__dmas_h_q, train__exin_h, test__exin_h, eval__exin_h) = model.preprocess_data(
@@ -176,6 +206,11 @@ class WaterFuturesEvaluator:
         test_results = self.evaluate(model)
         self.__models_results[model.name()]["test"] = test_results
 
+        
+        cur_file_path = os.path.join(self.__results_folder, f'{model.name()}.pkl')
+        with open(cur_file_path, 'wb') as f:
+            pickle.dump(self.__models_results[model.name()], f)
+
         # todo forecast on bwdf data
 
 
@@ -189,7 +224,8 @@ class WaterFuturesEvaluator:
         train__dmas_h_q = self.__models_results[model.name()]["processed_data"]["train__dmas_h_q"]
         train__exin_h = self.__models_results[model.name()]["processed_data"]["train__exin_h"]
 
-        first_split_week = 4
+        first_split_week = 12 # I don't think it makes sense starting before this week
+        # as 2 DMAS are full of nans until the 6th week
 
         test_weeks = range(first_split_week, train__dmas_h_q.shape[0]//WEEK_LEN)
         absolute_week_shift = 1
@@ -215,6 +251,7 @@ class WaterFuturesEvaluator:
             y_pred = model.forecast(vali__df)
             assert y_pred.shape[0] == 24*7
             assert y_pred.shape[1] == len(model.forecasted_dmas())
+            assert not np.isnan(y_pred).any()
             
             dmas_h_q_true = train__dmas_h_q.iloc[split_week*WEEK_LEN:(split_week+1)*WEEK_LEN, model.forecasted_dmas_idx()]
             y_true = dmas_h_q_true.to_numpy()
@@ -295,3 +332,62 @@ class WaterFuturesEvaluator:
         :return: A dictionary with the results of the evaluation for the model.
         """
         return self.__models_results[model_name]
+    
+    def models_names(self) -> list[str]:
+        """
+        Return the names of the models evaluated.
+
+        :return: A list with the names of the models evaluated.
+        """
+        return list(self.__models_results.keys())
+    
+    def run_dashboard(self) -> None:
+        """
+        Run the dashboard to visualize the results.
+        """
+        self.app = Dash(__name__)
+
+        self.app.layout = html.Div([
+            html.H1(children='Water Futures Evaluator Dashboard', style={'textAlign': 'center'}),
+            html.Div([
+                html.Div([
+                    html.Div(children='Select the performance indicator to visualize:'),
+                    dcc.Dropdown(['PI1', 'PI2', 'PI3'], 'PI1', id='pi-dropdown'),
+                    html.Div(children={}, id='pi-description')
+                ], style={'width': '48%', 'display': 'inline-block'}),
+                html.Div([
+                    html.Div(children='Select the DMA to visualize:'),
+                    dcc.Dropdown(data_loader.DMAS_NAMES, data_loader.DMAS_NAMES[0], id='dma-dropdown'),
+                    html.Div(children={}, id='dma-description')
+                ], style={'width': '48%', 'float': 'right', 'display': 'inline-block'}),
+            ]),
+            dcc.Graph(id='graph-content'),
+            dcc.Checklist(
+                id="model-checklist",
+                options=self.models_names(),
+                value=[self.models_names()[0]],
+                inline=True
+            )
+        ])
+
+        @callback(
+            Output('graph-content', 'figure'),
+            Output('dma-description', 'children'),
+            Output('pi-description', 'children'),
+            Input('dma-dropdown', 'value'),
+            Input('pi-dropdown', 'value'),
+            Input('model-checklist', 'value')
+        )
+        def update_graph(dma, pi, model_names):
+            fig = go.Figure()
+            
+            for model_name in model_names:
+                vali_df = self.__models_results[model_name]["validation"]
+                vali__weeks = vali_df.index.get_level_values(0).unique()
+                vali__dma_pi = vali_df.xs(dma, level=1).loc[:,pi]
+                fig.add_trace(go.Scatter(x=vali__weeks, y=vali__dma_pi, name=model_name, mode='lines'))
+            
+            fig.update_layout(title=dma, xaxis_title='Week', yaxis_title='MAE [L/s]')
+            return fig, "DMA: {}".format(dma), "Performance Indicator: {}".format(pi)
+
+        self.app.run(debug=True)

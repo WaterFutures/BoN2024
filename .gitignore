@@ -1,4 +1,8 @@
 results/
+wfe_results/
 .ipynb_checkpoints/
 
 __pycache__/
+
+# Exclude ray artifacts
+**/__best_trials__/

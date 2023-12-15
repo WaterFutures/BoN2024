@@ -3,7 +3,7 @@ Repository containing the solution of the Water Futures team for the Battle of t
 
 Some (perhaps obvious) ideas (PS):
 1. Using logarithms improves things.
-2. DMA F can be forecasted sufficiently well via simple AR models (so a feature for a more advanced model could be to use those forecasts as a feature).
+2. DMA F can be forecasted sufficiently well via simple AR models (so a feature for a more advanced model could be to use those forecasts as a feature) even though is is quite irregular.
 3. When using features among DMAs (for example the minimum value across DMAs for each day), use some kind of normalization before (because for example, this feature will tend to result in the value of DMA F or A).
 4. Some interesting features: days_since_rain, real_feel, dew_point, heat_index, ewm of DMAs.
 5. In the evaluation framework, in addition to the average scores, we should also evaluate different models with respect to their ranking (because model A can have a better average score than Model B, but it could be higher ranked).
@@ -13,4 +13,4 @@ Some (perhaps obvious) ideas (PS):
 9. A nice of the self package that works well for outlier detection: SeasonalAD from adtk.detector.
 10. Removing seasonal patterns and then forecasting the residuals, didn't work for me.
 11. DMAs with strong time series properties: F and C.
-12. DMAs with not strong time series properties: E, H and I.
+12. DMAs without strong time series properties: E, H and I.

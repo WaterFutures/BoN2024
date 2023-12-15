@@ -193,7 +193,7 @@ class WaterFuturesEvaluator:
         train__dmas_h_q = self.__models_results[model.name()]["processed_data"]["train__dmas_h_q"]
         train__exin_h = self.__models_results[model.name()]["processed_data"]["train__exin_h"]
 
-        first_split_week = 8 # I don't think it makes sense starting before this week
+        first_split_week = 12 # I don't think it makes sense starting before this week
         # as 2 DMAS are full of nans until the 6th week
 
         test_weeks = range(first_split_week, train__dmas_h_q.shape[0]//WEEK_LEN)

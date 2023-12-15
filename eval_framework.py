@@ -38,6 +38,9 @@ from constants import DAY_LEN, WEEK_LEN
 import plotly.express as px
 import plotly.graph_objects as go
 from dash import Dash, html, dcc, callback, Output, Input
+import pickle
+import os
+import pathlib
 
 def performance_indicator_1(dmas_h_q_true: np.ndarray, dmas_h_q_pred: np.ndarray) -> np.ndarray:
     """
@@ -154,13 +157,36 @@ class WaterFuturesEvaluator:
         self.__models_results = {}
         self.__pis = ['PI1', 'PI2', 'PI3', 'n_nans_1d', 'n_nans_w']
         self.app = None
+        self.__results_folder = os.path.join(pathlib.Path(__file__).parent.resolve(), 'wfe_results')
+        if not os.path.exists(self.__results_folder):
+            os.makedirs(self.__results_folder)
+        self.load_saved_results()
+
+
+    def load_saved_results(self):
+        """
+        Load results already saved in results folder.
+        """
+        files = os.listdir(self.__results_folder)
+        for cur_file in files:
+            cur_file_path = os.path.join(self.__results_folder, cur_file)
+            cur_model_name = '.'.join(cur_file.split('.')[:-1])
+            with open(cur_file_path, 'rb') as f:
+                self.__models_results[cur_model_name] = pickle.load(f)
+
         
-    def add_model(self, model) -> None:
+    def add_model(self, model, force=False) -> None:
         """
         Add a model to the evaluator.
 
         :param model: The model to add.
+        :param force: Force re-compute the model even if it's results already exist.
         """
+
+        # Check force condition and skip computation if desired
+        if (not force) and (model.name() in self.__models_results.keys()):
+            return
+        
         self.__models_results[model.name()] = ModelResults()
 
         (train__dmas_h_q, test__dmas_h_q, train__exin_h, test__exin_h, eval__exin_h) = model.preprocess_data(
@@ -179,6 +205,11 @@ class WaterFuturesEvaluator:
 
         test_results = self.evaluate(model)
         self.__models_results[model.name()]["test"] = test_results
+
+        
+        cur_file_path = os.path.join(self.__results_folder, f'{model.name()}.pkl')
+        with open(cur_file_path, 'wb') as f:
+            pickle.dump(self.__models_results[model.name()], f)
 
         # todo forecast on bwdf data
 

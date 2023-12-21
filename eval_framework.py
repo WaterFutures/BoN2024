@@ -250,10 +250,12 @@ class WaterFuturesEvaluator:
         # as 2 DMAS are full of nans until the 6th week
 
         absolute_week_shift = 1 # We said the week 0 (1st Jan 2021 to 4th jan 2021) is not used
-        test_weeks = range(first_split_week+absolute_week_shift, 
+        abs_test_weeks = range(first_split_week+absolute_week_shift, 
                            train__dmas_h_q.shape[0]//WEEK_LEN+absolute_week_shift)
+        test_weeks = range(first_split_week, 
+                           train__dmas_h_q.shape[0]//WEEK_LEN)
         
-        results = ProcessResults(test_weeks, model.forecasted_dmas())
+        results = ProcessResults(abs_test_weeks, model.forecasted_dmas())
         
         for split_week in test_weeks:
         
@@ -299,10 +301,12 @@ class WaterFuturesEvaluator:
         fcst__dmas_h_q = self.__models_results[model.name()]["processed_data"]["fcst__dmas_h_q"]
         
         absolute_week_shift = data_loader.dataset_week_number(self.__test__dmas_h_q.index[0])
-        test_weeks = range(0+absolute_week_shift,
+        abs_test_weeks = range(0+absolute_week_shift,
                            self.__test__dmas_h_q.shape[0]//WEEK_LEN+absolute_week_shift)
+        test_weeks = range(0,
+                           self.__test__dmas_h_q.shape[0]//WEEK_LEN)
         
-        results = ProcessResults(test_weeks, model.forecasted_dmas())
+        results = ProcessResults(abs_test_weeks, model.forecasted_dmas())
 
         for test_week in test_weeks:
             test__df = pd.concat([

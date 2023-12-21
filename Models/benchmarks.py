@@ -11,8 +11,8 @@ class PreviousWeek(Model):
     def fit(self, X_train: pd.DataFrame) -> None:
         pass
 
-    def forecast(self, X_test: pd.DataFrame) -> np.ndarray:
-        last_week = X_test.iloc[-2*WEEK_LEN:-WEEK_LEN, self.forecasted_dmas_idx()].to_numpy()
+    def forecast(self, X_train: pd.DataFrame, X_test: pd.DataFrame) -> np.ndarray:
+        last_week = X_train.iloc[-WEEK_LEN:, self.forecasted_dmas_idx()].to_numpy()
         return np.nan_to_num(last_week) #fill with 0s because I can't return a solution with NaNs
     
     def name(self) -> str:
@@ -41,8 +41,8 @@ class AverageWeek(Model):
     def fit(self, X_train: pd.DataFrame) -> None:
         pass
 
-    def forecast(self, X_test: pd.DataFrame) -> np.ndarray:
-        all_values = X_test.iloc[:-WEEK_LEN, self.forecasted_dmas_idx()].to_numpy()
+    def forecast(self, X_train: pd.DataFrame, X_test: pd.DataFrame) -> np.ndarray:
+        all_values = X_train.iloc[:, self.forecasted_dmas_idx()].to_numpy()
         average_week = np.nanmean(all_values.reshape((-1,WEEK_LEN,all_values.shape[1])), 
                                        axis=0)
         return average_week

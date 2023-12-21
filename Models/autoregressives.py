@@ -21,7 +21,7 @@ class AutoRegressive(Model):
             self.dmas_models[dma] = _model_.fit()
         
 
-    def forecast(self, X_test: pd.DataFrame) -> np.ndarray:
+    def forecast(self, X_train: pd.DataFrame, X_test: pd.DataFrame) -> np.ndarray:
         pred = np.array([self.dmas_models[dma].forecast(steps=WEEK_LEN) for dma in DMAS_NAMES])
         return pred.T
     
@@ -56,7 +56,7 @@ class AutoRegressive(Model):
                                   trace=True)
                 self.dmas_models[dma] = _model_
 
-        def forecast(self, X_test: pd.DataFrame) -> np.ndarray:
+        def forecast(self, X_train: pd.DataFrame, X_test: pd.DataFrame) -> np.ndarray:
             pred = np.array([self.dmas_models[dma].predict(n_periods=WEEK_LEN) for dma in DMAS_NAMES])
             return pred.T
         

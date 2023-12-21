@@ -116,6 +116,8 @@ def performance_indicators(dmas_h_q_true: np.ndarray, dmas_h_q_pred: np.ndarray)
             'n_nans_1d': nans_true[:24].sum(axis=0),
             'n_nans_w': nans_true.sum(axis=0)}
 
+PIs = ['PI1', 'PI2', 'PI3', 'n_nans_1d', 'n_nans_w']
+
 def ModelResults() -> dict:
     """
     Return a dictionary with all the necessary information to describe the whole 
@@ -148,14 +150,31 @@ def ModelResults() -> dict:
         "bwdf_forecast": None
     }
 
+def ProcessResults(eval_weeks: range, dmas: list[str]) -> pd.DataFrame:
+    """
+    Return a dataframe with the structure of the results of the evaluation over
+    the trainig/validation or test set.
+    It differs from ModelResults as this only keeps the scores for each week 
+    and dma
+
+    :param eval_weeks: The weeks to evaluate.
+    :param dmas: The DMAs to evaluate.
+    :return: A Pandas dataframe with a two level index (test week level 0; DMA
+     level 1) and columns the perfromances indicators.
+    """
+
+    pd.DataFrame(
+            index=pd.MultiIndex.from_tuples([(ew,dma) for ew in eval_weeks for dma in dmas], names=['Test week', 'DMA']),
+            columns=PIs
+        )
+
 class WaterFuturesEvaluator:
 
     def __init__(self) -> None:
         (self.__train__dmas_h_q, self.__test__dmas_h_q, 
         self.__train__exin_h, self.__test__exin_h, self.__eval__exin_h) = data_loader.load_splitted_data(
             split_strategy="final_weeks", split_size_w=4, start_first_monday=True)
-        self.__models_results = {}
-        self.__pis = ['PI1', 'PI2', 'PI3', 'n_nans_1d', 'n_nans_w']
+        self.__models_results = {} 
         self.app = None
         self.__results_folder = os.path.join(pathlib.Path(__file__).parent.resolve(), 'wfe_results')
         if not os.path.exists(self.__results_folder):
@@ -230,13 +249,11 @@ class WaterFuturesEvaluator:
         first_split_week = 12 # I don't think it makes sense starting before this week
         # as 2 DMAS are full of nans until the 6th week
 
-        test_weeks = range(first_split_week, train__dmas_h_q.shape[0]//WEEK_LEN)
-        absolute_week_shift = 1
-
-        results = pd.DataFrame(
-            index=pd.MultiIndex.from_tuples([(tw+absolute_week_shift,dma) for tw in test_weeks for dma in model.forecasted_dmas()], names=['Test week', 'DMA']),
-            columns=self.__pis
-        )
+        absolute_week_shift = 1 # We said the week 0 (1st Jan 2021 to 4th jan 2021) is not used
+        test_weeks = range(first_split_week+absolute_week_shift, 
+                           train__dmas_h_q.shape[0]//WEEK_LEN+absolute_week_shift)
+        
+        results = ProcessResults(test_weeks, model.forecasted_dmas())
         
         for split_week in test_weeks:
         
@@ -281,13 +298,11 @@ class WaterFuturesEvaluator:
         test__exin_h = self.__models_results[model.name()]["processed_data"]["test__exin_h"]
         fcst__dmas_h_q = self.__models_results[model.name()]["processed_data"]["fcst__dmas_h_q"]
         
-        test_weeks = range(0, self.__test__dmas_h_q.shape[0]//WEEK_LEN)
         absolute_week_shift = data_loader.dataset_week_number(self.__test__dmas_h_q.index[0])
+        test_weeks = range(0+absolute_week_shift,
+                           self.__test__dmas_h_q.shape[0]//WEEK_LEN+absolute_week_shift)
         
-        results = pd.DataFrame(
-            index=pd.MultiIndex.from_tuples([(tw+absolute_week_shift,dma) for tw in test_weeks for dma in model.forecasted_dmas()], names=['Test week', 'DMA']),
-            columns=['PI1', 'PI2', 'PI3', 'n_nans_1d', 'n_nans_w']
-        )
+        results = ProcessResults(test_weeks, model.forecasted_dmas())
 
         for test_week in test_weeks:
             test__df = pd.concat([

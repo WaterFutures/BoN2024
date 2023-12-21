@@ -197,24 +197,26 @@ class WaterFuturesEvaluator:
         self.__models_results[model.name()]["processed_data"]["train__exin_h"] = train__exin_h
         self.__models_results[model.name()]["processed_data"]["test__exin_h"] = test__exin_h
         self.__models_results[model.name()]["processed_data"]["eval__exin_h"] = eval__exin_h
+        self.__models_results[model.name()]["processed_data"]["fcst__dmas_h_q"] = None
 
         self.__models_results[model.name()]["model"] = model
 
-        training_results = self.train(model)
+        training_results, fcst__dmas_h_q = self.train(model)
         self.__models_results[model.name()]["validation"] = training_results
+        self.__models_results[model.name()]["processed_data"]["fcst__dmas_h_q"] = fcst__dmas_h_q
 
-        test_results = self.evaluate(model)
+        test_results, fcst__dmas_h_q = self.evaluate(model)
         self.__models_results[model.name()]["test"] = test_results
+        self.__models_results[model.name()]["processed_data"]["fcst__dmas_h_q"] = fcst__dmas_h_q
 
-        
+        self.__models_results[model.name()]["bwdf_forecast"] = self.bwdf_forecast(model)
+
         cur_file_path = os.path.join(self.__results_folder, f'{model.name()}.pkl')
         with open(cur_file_path, 'wb') as f:
             pickle.dump(self.__models_results[model.name()], f)
 
-        # todo forecast on bwdf data
 
-
-    def train(self, model) -> pd.DataFrame:
+    def train(self, model) -> tuple[pd.DataFrame, pd.DataFrame]:
         """
         Train the model on all the weeks in the training set.
 
@@ -223,6 +225,7 @@ class WaterFuturesEvaluator:
         """
         train__dmas_h_q = self.__models_results[model.name()]["processed_data"]["train__dmas_h_q"]
         train__exin_h = self.__models_results[model.name()]["processed_data"]["train__exin_h"]
+        fcst__dmas_h_q = self.__models_results[model.name()]["processed_data"]["fcst__dmas_h_q"]
 
         first_split_week = 12 # I don't think it makes sense starting before this week
         # as 2 DMAS are full of nans until the 6th week
@@ -257,10 +260,15 @@ class WaterFuturesEvaluator:
                 assert pi in result.keys()
                 results.loc[(split_week+absolute_week_shift,model.forecasted_dmas()), pi] = result[pi]
         
-        return results
+            fcst__dmas_h_q = pd.concat([fcst__dmas_h_q,
+                                        pd.DataFrame(y_pred, 
+                                                     index=dmas_h_q_true.index, 
+                                                     columns=model.forecasted_dmas())
+                                        ], axis=0)
+        return results, fcst__dmas_h_q
 
 
-    def evaluate(self, model) -> pd.DataFrame:
+    def evaluate(self, model) -> tuple[pd.DataFrame, pd.DataFrame]:
         """
         Evaluate the model on all the weeks in the test set.
 
@@ -271,6 +279,7 @@ class WaterFuturesEvaluator:
         train__exin_h = self.__models_results[model.name()]["processed_data"]["train__exin_h"]
         test__dmas_h_q = self.__models_results[model.name()]["processed_data"]["test__dmas_h_q"]
         test__exin_h = self.__models_results[model.name()]["processed_data"]["test__exin_h"]
+        fcst__dmas_h_q = self.__models_results[model.name()]["processed_data"]["fcst__dmas_h_q"]
         
         test_weeks = range(0, self.__test__dmas_h_q.shape[0]//WEEK_LEN)
         absolute_week_shift = data_loader.dataset_week_number(self.__test__dmas_h_q.index[0])
@@ -299,8 +308,12 @@ class WaterFuturesEvaluator:
                 assert pi in result.keys()
                 results.loc[(test_week+absolute_week_shift,model.forecasted_dmas()), pi] = result[pi]
             
-            
-        return results
+            fcst__dmas_h_q = pd.concat([fcst__dmas_h_q,
+                                        pd.DataFrame(y_pred, 
+                                                     index=dmas_h_q_true.index, 
+                                                     columns=model.forecasted_dmas())
+                                        ], axis=0)
+        return results, fcst__dmas_h_q
 
     def bwdf_forecast(self, model) -> pd.DataFrame:
         """
@@ -309,7 +322,23 @@ class WaterFuturesEvaluator:
         :param model: The model to forecast.
         :return: A Pandas dataframe with index the DMAs and columns the forecasted dmas.
         """
-        pass
+        train__dmas_h_q = self.__models_results[model.name()]["processed_data"]["train__dmas_h_q"]
+        train__exin_h = self.__models_results[model.name()]["processed_data"]["train__exin_h"]
+        test__dmas_h_q = self.__models_results[model.name()]["processed_data"]["test__dmas_h_q"]
+        test__exin_h = self.__models_results[model.name()]["processed_data"]["test__exin_h"]
+        eval__exin_h = self.__models_results[model.name()]["processed_data"]["eval__exin_h"]
+
+        complete__df = pd.concat([
+            pd.concat([train__dmas_h_q, test__dmas_h_q], axis=0),
+            pd.concat([train__exin_h, test__exin_h], axis=0)
+        ], axis=1)
+
+        y_pred = model.forecast(complete__df, eval__exin_h)
+        assert y_pred.shape[0] == 24*7
+        assert y_pred.shape[1] == len(model.forecasted_dmas())
+        
+        return pd.DataFrame(y_pred, index=self.__eval__exin_h.index, columns=model.forecasted_dmas())
+
 
     def results(self) -> dict:
         """

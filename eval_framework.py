@@ -163,7 +163,7 @@ def ProcessResults(eval_weeks: range, dmas: list[str]) -> pd.DataFrame:
      level 1) and columns the perfromances indicators.
     """
 
-    pd.DataFrame(
+    return pd.DataFrame(
             index=pd.MultiIndex.from_tuples([(ew,dma) for ew in eval_weeks for dma in dmas], names=['Test week', 'DMA']),
             columns=PIs
         )

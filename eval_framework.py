@@ -243,17 +243,12 @@ class WaterFuturesEvaluator:
             
             model.fit(train__df)
 
-            # Evaluate the model on the validation set
-            vali__df = pd.concat(
-                [train__dmas_h_q.iloc[:(split_week+1)*WEEK_LEN,:], train__exin_h.iloc[:(split_week+1)*WEEK_LEN,:]],
-                axis=1)
-            
-            y_pred = model.forecast(vali__df)
+            y_pred = model.forecast(train__df, train__exin_h.iloc[split_week*WEEK_LEN:(split_week+1)*WEEK_LEN,:])
             assert y_pred.shape[0] == 24*7
             assert y_pred.shape[1] == len(model.forecasted_dmas())
             assert not np.isnan(y_pred).any()
             
-            dmas_h_q_true = train__dmas_h_q.iloc[split_week*WEEK_LEN:(split_week+1)*WEEK_LEN, model.forecasted_dmas_idx()]
+            dmas_h_q_true = self.__train__dmas_h_q.iloc[split_week*WEEK_LEN:(split_week+1)*WEEK_LEN, model.forecasted_dmas_idx()]
             y_true = dmas_h_q_true.to_numpy()
 
             # Store the results
@@ -277,8 +272,8 @@ class WaterFuturesEvaluator:
         test__dmas_h_q = self.__models_results[model.name()]["processed_data"]["test__dmas_h_q"]
         test__exin_h = self.__models_results[model.name()]["processed_data"]["test__exin_h"]
         
-        test_weeks = range(0, test__dmas_h_q.shape[0]//WEEK_LEN)
-        absolute_week_shift = data_loader.dataset_week_number(test__dmas_h_q.index[0])
+        test_weeks = range(0, self.__test__dmas_h_q.shape[0]//WEEK_LEN)
+        absolute_week_shift = data_loader.dataset_week_number(self.__test__dmas_h_q.index[0])
         
         results = pd.DataFrame(
             index=pd.MultiIndex.from_tuples([(tw+absolute_week_shift,dma) for tw in test_weeks for dma in model.forecasted_dmas()], names=['Test week', 'DMA']),
@@ -288,15 +283,14 @@ class WaterFuturesEvaluator:
         for test_week in test_weeks:
             test__df = pd.concat([
                 pd.concat([train__dmas_h_q, test__dmas_h_q.iloc[:test_week*WEEK_LEN, :] ], axis=0),
-                pd.concat([train__exin_h, test__exin_h.iloc[:(test_week+1)*WEEK_LEN,:] ], axis=0)
-                ],
-                 axis=1)
+                pd.concat([train__exin_h, test__exin_h.iloc[:test_week*WEEK_LEN,:] ], axis=0)
+                ], axis=1)
             
-            y_pred = model.forecast(test__df)
+            y_pred = model.forecast(test__df, test__exin_h.iloc[test_week*WEEK_LEN:(test_week+1)*WEEK_LEN,:] )
             assert y_pred.shape[0] == 24*7
             assert y_pred.shape[1] == len(model.forecasted_dmas())
             
-            dmas_h_q_true = test__dmas_h_q.iloc[test_week*WEEK_LEN:(test_week+1)*WEEK_LEN, model.forecasted_dmas_idx()]
+            dmas_h_q_true = self.__test__dmas_h_q.iloc[test_week*WEEK_LEN:(test_week+1)*WEEK_LEN, model.forecasted_dmas_idx()]
             y_true = dmas_h_q_true.to_numpy()
 
             # Store the results

@@ -47,9 +47,14 @@ from .result_structures import ModelResults, ProcessResults
 class WaterFuturesEvaluator:
 
     def __init__(self) -> None:
+        self.__first_split_week = 12 # I don't think it makes sense starting before this week 
+        # as 2 DMAS are full of nans until the 6th week. Relative number from the beginning of the train object!
+        self.__n_test_weeks = 4 # Relative number!
+
         (self.__train__dmas_h_q, self.__test__dmas_h_q, 
         self.__train__exin_h, self.__test__exin_h, self.__eval__exin_h) = data_loader.load_splitted_data(
-            split_strategy="final_weeks", split_size_w=4, start_first_monday=True)
+            split_strategy="final_weeks", split_size_w=self.__n_test_weeks, start_first_monday=True)
+
         self.__models_results = {} 
         self.app = None
         self.__results_folder = os.path.join(pathlib.Path(__file__).parent.parent.resolve(), 'wfe_results')
@@ -68,8 +73,7 @@ class WaterFuturesEvaluator:
             cur_model_name = '.'.join(cur_file.split('.')[:-1])
             with open(cur_file_path, 'rb') as f:
                 self.__models_results[cur_model_name] = pickle.load(f)
-
-        
+   
     def add_model(self, model, force=False) -> None:
         """
         Add a model to the evaluator.
@@ -122,44 +126,43 @@ class WaterFuturesEvaluator:
         train__exin_h = self.__models_results[model.name()]["processed_data"]["train__exin_h"]
         fcst__dmas_h_q = self.__models_results[model.name()]["processed_data"]["fcst__dmas_h_q"]
 
-        first_split_week = 12 # I don't think it makes sense starting before this week
-        # as 2 DMAS are full of nans until the 6th week
-
-        absolute_week_shift = 1 # We said the week 0 (1st Jan 2021 to 4th jan 2021) is not used
-        abs_test_weeks = range(first_split_week+absolute_week_shift, 
-                           train__dmas_h_q.shape[0]//WEEK_LEN+absolute_week_shift)
-        test_weeks = range(first_split_week, 
-                           train__dmas_h_q.shape[0]//WEEK_LEN)
-        
+        abs_test_weeks = range(self.first_split_absweek(), 
+                                self.last_train_absweek()+1)
         results = ProcessResults(abs_test_weeks, model.forecasted_dmas())
         
-        for split_week in test_weeks:
+        absolute_week_shift = 1 # We said the week 0 (1st Jan 2021 to 4th jan 2021) is not used
+        vali_weeks = range(self.first_split_week(),  # this is a relative number 
+                           train__dmas_h_q.shape[0]//WEEK_LEN)
         
+        for vali_week in vali_weeks:
+            vali_absweek = vali_week + absolute_week_shift
+
             train__df = pd.concat(
-                [train__dmas_h_q.iloc[:split_week*WEEK_LEN,:], train__exin_h.iloc[:split_week*WEEK_LEN,:]],
+                [train__dmas_h_q.iloc[:vali_week*WEEK_LEN,:], train__exin_h.iloc[:vali_week*WEEK_LEN,:]],
                 axis=1)
             
             model.fit(train__df)
 
-            y_pred = model.forecast(train__df, train__exin_h.iloc[split_week*WEEK_LEN:(split_week+1)*WEEK_LEN,:])
-            assert y_pred.shape[0] == 24*7
+            y_pred = model.forecast(train__df, train__exin_h.iloc[vali_week*WEEK_LEN:(vali_week+1)*WEEK_LEN,:])
+            assert y_pred.shape[0] == WEEK_LEN
             assert y_pred.shape[1] == len(model.forecasted_dmas())
             assert not np.isnan(y_pred).any()
             
-            dmas_h_q_true = self.__train__dmas_h_q.iloc[split_week*WEEK_LEN:(split_week+1)*WEEK_LEN, model.forecasted_dmas_idx()]
+            dmas_h_q_true = self.__train__dmas_h_q.iloc[vali_week*WEEK_LEN:(vali_week+1)*WEEK_LEN, model.forecasted_dmas_idx()]
             y_true = dmas_h_q_true.to_numpy()
 
-            # Store the results
-            result = performance_indicators(y_true, y_pred)
-            for pi in results.columns:
-                assert pi in result.keys()
-                results.loc[(split_week+absolute_week_shift,model.forecasted_dmas()), pi] = result[pi]
-        
+            # Store the results (first create a copy of the forecasted week 
+            # before being modified in the performance indicator function)
             fcst__dmas_h_q = pd.concat([fcst__dmas_h_q,
                                         pd.DataFrame(y_pred, 
                                                      index=dmas_h_q_true.index, 
                                                      columns=model.forecasted_dmas())
                                         ], axis=0)
+            result = performance_indicators(y_true, y_pred)
+            for pi in results.columns:
+                assert pi in result.keys()
+                results.loc[(vali_absweek,model.forecasted_dmas()), pi] = result[pi]
+
         return results, fcst__dmas_h_q
 
 
@@ -176,38 +179,42 @@ class WaterFuturesEvaluator:
         test__exin_h = self.__models_results[model.name()]["processed_data"]["test__exin_h"]
         fcst__dmas_h_q = self.__models_results[model.name()]["processed_data"]["fcst__dmas_h_q"]
         
+        abs_test_weeks = range(self.first_test_absweek(),
+                           self.last_test_absweek()+1)
+        results = ProcessResults(abs_test_weeks, model.forecasted_dmas())
+
         absolute_week_shift = data_loader.dataset_week_number(self.__test__dmas_h_q.index[0])
-        abs_test_weeks = range(0+absolute_week_shift,
-                           self.__test__dmas_h_q.shape[0]//WEEK_LEN+absolute_week_shift)
         test_weeks = range(0,
                            self.__test__dmas_h_q.shape[0]//WEEK_LEN)
         
-        results = ProcessResults(abs_test_weeks, model.forecasted_dmas())
-
         for test_week in test_weeks:
+            test_absweek = test_week + absolute_week_shift
+
             test__df = pd.concat([
                 pd.concat([train__dmas_h_q, test__dmas_h_q.iloc[:test_week*WEEK_LEN, :] ], axis=0),
                 pd.concat([train__exin_h, test__exin_h.iloc[:test_week*WEEK_LEN,:] ], axis=0)
                 ], axis=1)
             
             y_pred = model.forecast(test__df, test__exin_h.iloc[test_week*WEEK_LEN:(test_week+1)*WEEK_LEN,:] )
-            assert y_pred.shape[0] == 24*7
+            assert y_pred.shape[0] == WEEK_LEN
             assert y_pred.shape[1] == len(model.forecasted_dmas())
+            assert not np.isnan(y_pred).any()
             
             dmas_h_q_true = self.__test__dmas_h_q.iloc[test_week*WEEK_LEN:(test_week+1)*WEEK_LEN, model.forecasted_dmas_idx()]
             y_true = dmas_h_q_true.to_numpy()
 
-            # Store the results
-            result = performance_indicators(y_true, y_pred)
-            for pi in results.columns:
-                assert pi in result.keys()
-                results.loc[(test_week+absolute_week_shift,model.forecasted_dmas()), pi] = result[pi]
-            
+            # Store the results (first create a copy of the forecasted week 
+            # before being modified in the performance indicator function)
             fcst__dmas_h_q = pd.concat([fcst__dmas_h_q,
                                         pd.DataFrame(y_pred, 
                                                      index=dmas_h_q_true.index, 
                                                      columns=model.forecasted_dmas())
                                         ], axis=0)
+            result = performance_indicators(y_true, y_pred)
+            for pi in results.columns:
+                assert pi in result.keys()
+                results.loc[(test_absweek,model.forecasted_dmas()), pi] = result[pi]
+            
         return results, fcst__dmas_h_q
 
     def bwdf_forecast(self, model) -> pd.DataFrame:
@@ -259,6 +266,27 @@ class WaterFuturesEvaluator:
         """
         return list(self.__models_results.keys())
     
+    def first_split_week(self) -> int:
+        return self.__first_split_week
+    
+    def first_split_absweek(self) -> int:
+        return self.__first_split_week+1
+    
+    def last_train_absweek(self) -> int:
+        return data_loader.dataset_week_number(self.__train__dmas_h_q.index[-1])
+        
+    def first_test_absweek(self) -> int:
+        return data_loader.dataset_week_number(self.__test__dmas_h_q.index[0])
+    
+    def last_test_absweek(self) -> int:
+        return data_loader.dataset_week_number(self.__test__dmas_h_q.index[-1])
+        
+    def n_test_weeks(self) -> int:
+        return self.__n_test_weeks
+    
+    def fcst_absweek(self) -> int:
+        return data_loader.dataset_week_number(self.__eval__exin_h.index[0])
+
     def run_dashboard(self) -> None:
         """
         Run the dashboard to visualize the results.
@@ -278,8 +306,10 @@ class WaterFuturesEvaluator:
                     dcc.Dropdown(data_loader.DMAS_NAMES, data_loader.DMAS_NAMES[0], id='dma-dropdown'),
                     html.Div(children={}, id='dma-description')
                 ], style={'width': '30%', 'float': 'left', 'display': 'inline-block'}),
-                html.Div(children={}, id='errors-description',
-                         style={'width': '40%', 'float': 'right', 'display': 'inline-block'})
+                html.Div([
+                        html.Div(children='Messages from the dashboard:'),
+                        html.Div(children={}, id='errors-description'),
+                ], style={'width': '40%', 'float': 'right', 'display': 'inline-block'})
             ]),
             dcc.Graph(id='graph-content'),
             html.Div([ 
@@ -297,6 +327,20 @@ class WaterFuturesEvaluator:
                     dcc.Dropdown(self.models_names(), self.models_names()[0], id='model-description-dropdown'),
                     html.Div(children={}, id='model-description')
                 ], style={'width': '48%', 'float': 'right', 'display': 'inline-block'}),
+            ]),
+            html.Div([
+                dcc.Graph(id='trajectory-content'),
+                dcc.RangeSlider(
+                    id='trajectory-slider',
+                    min=self.first_split_absweek(),
+                    max=self.fcst_absweek(),
+                    step=1,
+                    value=[self.first_test_absweek(),
+                           self.fcst_absweek()],
+                    marks={i: '{}'.format(i) for i in range(self.first_split_absweek(),
+                                                            self.fcst_absweek()+1,
+                                                            1)}
+                )
             ])
         ])
 
@@ -305,12 +349,14 @@ class WaterFuturesEvaluator:
             Output('dma-description', 'children'),
             Output('pi-description', 'children'),
             Output('errors-description', 'children'),
+            Output('trajectory-content', 'figure'),
             Input('dma-dropdown', 'value'),
             Input('pi-dropdown', 'value'),
-            Input('model-checklist', 'value')
+            Input('model-checklist', 'value'),
+            Input('trajectory-slider', 'value')
         )
-        def update_dash(dma, pi, model_names):
-            fig = go.Figure()
+        def update_dash(dma, pi, model_names, wrange):
+            figpi = go.Figure()
             
             i = 0
             # limit the number of models to show to the number of colors that can be used
@@ -334,19 +380,19 @@ class WaterFuturesEvaluator:
                 plot__dma_pi = np.append(vali__dma_pi, [test__dma_pi.mean(), test__dma_pi.mean()])
 
                 # add the line to the plot and the 4 points indepentently
-                fig.add_trace(go.Scatter(x=plot__weeks, y=plot__dma_pi, name=model_name, 
+                figpi.add_trace(go.Scatter(x=plot__weeks, y=plot__dma_pi, name=model_name, 
                                          mode='lines', line=dict(color=px.colors.qualitative.Plotly[i])))
-                fig.add_trace(go.Scatter(x=test__weeks, y=test__dma_pi, name=model_name, 
+                figpi.add_trace(go.Scatter(x=test__weeks, y=test__dma_pi, name=model_name, 
                                          mode='markers', marker=dict(color=px.colors.qualitative.Plotly[i]), 
                                          showlegend=False))
 
-                fig.update_xaxes(range=[vali__weeks[0]-1, test__weeks[-1]+1])
+                figpi.update_xaxes(range=[vali__weeks[0]-1, test__weeks[-1]+1])
                 week_ticks = week_ticks = np.concatenate(([plot__weeks[0]], 
                                                           np.arange(20, plot__weeks[-1], 10), 
                                                           test__weeks.tolist())).tolist()
-                fig.update_xaxes(tickvals=week_ticks)
+                figpi.update_xaxes(tickvals=week_ticks)
 
-                fig.update_layout(
+                figpi.update_layout(
                     legend=dict(
                         x=0.7,
                         y=1.11,
@@ -366,11 +412,36 @@ class WaterFuturesEvaluator:
                 )
                 i += 1
             
-            fig.update_layout(title=f"Performance for {dma} and {pi} of the selected models in Validation and Test", 
+            figpi.update_layout(title=f"Performance for {dma} and {pi} of the selected models in Validation and Test", 
                               xaxis_title='Week', yaxis_title=performance_indicators_labels[pi])
-            return [fig, 
-                    "DMA: {}".format(dma), 
+            
+            # start of the plot with trajectories 
+            figtraj = go.Figure()
+
+            # This start from self.__first_split_week
+            start_h = pd.to_datetime(data_loader.monday_of_week_number(wrange[0]))
+            end_h = pd.to_datetime(data_loader.monday_of_week_number(wrange[1]+1))
+            i = 0
+            for model_name in model_names:
+                pred__dma_h_q = self.__models_results[model_name]["processed_data"]["fcst__dmas_h_q"].loc[start_h:end_h,dma]
+                pred__dma_h_q = pd.concat([pred__dma_h_q, self.__models_results[model_name]["bwdf_forecast"].loc[start_h:end_h,dma]], axis=0)
+                
+                figtraj.add_trace(go.Scatter(x=pred__dma_h_q.index, y=pred__dma_h_q, name=model_name,
+                                             mode='lines', line=dict(color=px.colors.qualitative.Plotly[i])))
+                i += 1
+
+            #end of the for plot the truth. 
+            true__dma_h_q = pd.concat([
+                    self.__train__dmas_h_q.loc[start_h:end_h, dma],
+                    self.__test__dmas_h_q.loc[start_h:end_h, dma]], axis=0)
+            # This starts on the 4th of Jan 2021. So I can simply use the week number
+            figtraj.add_trace(go.Scatter(x=true__dma_h_q.index, y=true__dma_h_q, name='Truth',
+                                            mode='lines', line=dict(color="#000000")))
+
+            return [figpi, 
+                    data_loader.load_characteristics().loc[dma,'description'], 
                     performance_indicators_long_names[pi],
-                    message]
+                    message,
+                    figtraj]
 
         self.app.run(debug=True)

@@ -4,7 +4,7 @@ from data_loader import DMAS_NAMES
 
 class Model:
     """Base class for all models.
-    
+
     We expect you to derive this class and override all the following methods:
     - fit
     - forecast
@@ -20,20 +20,18 @@ class Model:
     def fit(self, X_train: pd.DataFrame) -> None:
         pass
 
-    def forecast(self, X_train: pd.DataFrame, X_test: pd.DataFrame) -> np.ndarray:
+    def forecast(self, X_test: pd.DataFrame) -> np.ndarray:
         pass
 
     def name (self) -> str:
         return "Model"
-    
+
     def preprocess_data(self,
-                        train__dmas_h_q: pd.DataFrame, 
-                        test__dmas_h_q: pd.DataFrame, 
+                        train__dmas_h_q: pd.DataFrame,
                         train__exin_h:pd.DataFrame,
-                        test__exin_h:pd.DataFrame,
-                        eval__exin_h: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-        return train__dmas_h_q, test__dmas_h_q, train__exin_h, test__exin_h, eval__exin_h
-    
+                        test__exin_h:pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+        return (pd.DataFrame(), pd.DataFrame())
+
     def forecasted_dmas(self) -> list[str]:
         pass
 
@@ -42,4 +40,3 @@ class Model:
         dmas_names = DMAS_NAMES
         forecasted_dmas_idx = [dmas_names.index(dma) for dma in forecasted_dmas]
         return forecasted_dmas_idx
-        

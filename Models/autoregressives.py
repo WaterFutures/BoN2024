@@ -15,50 +15,66 @@ class AutoRegressive(Model):
 
     def fit(self, X_train: pd.DataFrame) -> None:
         for dma in DMAS_NAMES:
-            _model_ = AutoReg(X_train[dma].to_numpy(), 
-                              lags=self.lags, 
+            _model_ = AutoReg(X_train[dma].to_numpy(),
+                              lags=self.lags,
                               missing="drop")
             self.dmas_models[dma] = _model_.fit()
-        
 
-    def forecast(self, X_train: pd.DataFrame, X_test: pd.DataFrame) -> np.ndarray:
+
+    def forecast(self, X_test: pd.DataFrame) -> np.ndarray:
         pred = np.array([self.dmas_models[dma].forecast(steps=WEEK_LEN) for dma in DMAS_NAMES])
         return pred.T
-    
+
     def name(self) -> str:
         return f"AutoRegressive-lag_{self.lags}h"
-    
+
     def forecasted_dmas(self) -> list:
         return DMAS_NAMES
-    
+
     def preprocess_data(self,
-                        train__dmas_h_q: pd.DataFrame, 
-                        test__dmas_h_q: pd.DataFrame, 
+                        train__dmas_h_q: pd.DataFrame,
                         train__exin_h:pd.DataFrame,
-                        test__exin_h:pd.DataFrame,
-                        eval__exin_h: pd.DataFrame) -> tuple [pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+                        test__exin_h:pd.DataFrame) -> tuple [pd.DataFrame, pd.DataFrame]:
         # We don't need the exogenous data, discard them.
         # We don't fill the data, it is unnecessary.
-        return (train__dmas_h_q, test__dmas_h_q, 
-                pd.DataFrame(), pd.DataFrame(), pd.DataFrame())
-    
-    class Arima(Model):
-        def __init__(self) -> None:
-            super().__init__()
-            self.dmas_models = {}
+        return (train__dmas_h_q, pd.DataFrame())
 
-        def fit(self, X_train: pd.DataFrame) -> None:
-            for dma in DMAS_NAMES:
-                _model_ = pmd.auto_arima(y=X_train[dma].to_numpy(), 
-                                         X=X_train.drop(columns=[dma]).to_numpy(),
-                                  start_p=0,d = 1,start_q=0,
-                                  test="adf", supress_warnings = True,
-                                  trace=True)
-                self.dmas_models[dma] = _model_
+def impute_nan_(df):
 
-        def forecast(self, X_train: pd.DataFrame, X_test: pd.DataFrame) -> np.ndarray:
-            pred = np.array([self.dmas_models[dma].predict(n_periods=WEEK_LEN) for dma in DMAS_NAMES])
-            return pred.T
-        
-        def name(self) -> str:
-            return f"pmd Auto Arima"
+    df['hour'] = df.index.hour
+    df[DMAS_NAMES] = df[DMAS_NAMES].apply(lambda x:x.interpolate(limit=1))
+    df[DMAS_NAMES] = df.groupby(["hour"])[DMAS_NAMES].transform(lambda x: x.fillna(x.rolling(4).mean()))
+    df[DMAS_NAMES] = df.groupby(["hour"])[DMAS_NAMES].transform(lambda x: x.fillna(x.mean()))
+
+    return df[DMAS_NAMES]
+
+class Arima(Model):
+    def __init__(self) -> None:
+        super().__init__()
+        self.dmas_models = {}
+
+    def fit(self, X_train: pd.DataFrame) -> None:
+        for dma in DMAS_NAMES:
+            _model_ = pmd.auto_arima(X_train[dma].to_numpy(),
+                              start_p=0,d=1,start_q=0,
+                              test="adf", supress_warnings = True,
+                              trace=True)
+            self.dmas_models[dma] = _model_
+
+    def forecast(self, X_test: pd.DataFrame) -> np.ndarray:
+        pred = np.array([self.dmas_models[dma].predict(n_periods=WEEK_LEN) for dma in DMAS_NAMES])
+        return pred.T
+
+    def name(self) -> str:
+        return f"pmd Auto Arima"
+
+    def forecasted_dmas(self) -> list:
+        return DMAS_NAMES
+
+    def preprocess_data(self,
+                        train__dmas_h_q: pd.DataFrame,
+                        train__exin_h:pd.DataFrame,
+                        test__exin_h:pd.DataFrame) -> tuple [pd.DataFrame, pd.DataFrame]:
+        # We don't need the exogenous data, discard them.
+        # We don't fill the data, it is unnecessary.
+        return (impute_nan_(train__dmas_h_q), pd.DataFrame())

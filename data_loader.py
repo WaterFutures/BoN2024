@@ -1,5 +1,5 @@
 import pandas as pd
-import os 
+import os
 from sklearn.model_selection import train_test_split
 import holidays
 
@@ -19,7 +19,7 @@ def load_calendar():
     holidays_italy = set(holidays_italy).intersection(calendar.index.date)
     calendar.loc[list(holidays_italy), 'Holiday'] = 1
 
-    # holidays = ['2021-01-01', '2021-01-06','2021-04-04','2021-04-05'] 
+    # holidays = ['2021-01-01', '2021-01-06','2021-04-04','2021-04-05']
     # calendar.loc[holidays, 'Holiday'] = 1
     calendar.loc[:, 'Weekend'] = calendar.index.dayofweek.isin([5, 6]).astype(int)
     calendar.loc['2021-03-28', 'SummerTime'] = 1
@@ -34,13 +34,13 @@ DMAS_NAMES = ['DMA_A', 'DMA_B', 'DMA_C', 'DMA_D', 'DMA_E', 'DMA_F', 'DMA_G', 'DM
 
 def load_characteristics():
     dma_characts_json = {
-        'name_short':['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'], 
+        'name_short':['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'],
         'name_long': DMAS_NAMES,
         'description' : ['Hospital district', 'Residential district in the countryside', 'Residential district in the countryside',
                         'Suburban residential/commercial district', 'Residential/commercial district close to the city centre',
                         'Suburban district including sport facilities and office buildings', 'Residential district close to the city centre',
                         'City centre district', 'Commercial/industrial district close to the port', 'Commercial/industrial district close to the port'],
-        'desc_short' : ['Hosp', 'Res cside', 'Res cside', 
+        'desc_short' : ['Hosp', 'Res cside', 'Res cside',
                         'Suburb res/com', 'Res/com close',
                         'Suburb sport/off', 'Res close',
                         'City', 'Port', 'Port'],
@@ -48,15 +48,16 @@ def load_characteristics():
         'h_mean' : [8.4, 9.6, 4.3, 32.9, 78.3, 8.1, 25.1, 20.8, 20.6, 26.4] # L/s/per hour
     }
     dmas_characteristics = pd.DataFrame(dma_characts_json)
+    dmas_characteristics['mean_per_user'] = 100 * dmas_characteristics['h_mean'] / dmas_characteristics['population']
     dmas_characteristics.set_index('name_long', inplace=True)
 
     return dmas_characteristics
 
 def load_original_data():
     # This function is used to load the data from the excel files and have a common format for the names and the structure of the work.
-    # The original data are saved in the same folder of the code under BoN2024/data/original. 
+    # The original data are saved in the same folder of the code under BoN2024/data/original.
     # The path to the folder BoN2024 can be changed and specidied in the environment variable BON2024_DATA_FOLDER, if this doesn't exist the data are considered to be in the code directory 'data'.
-    # 
+    #
     # The created variables are the following:
     # - raw_dmas_h_cons: dataframe with the consumption/inflow data, the columns are the names of the DMAs and the index is the date
     # - raw_weather_h:     dataframe with the weather data, the columns are the names of the variables and the index is the date
@@ -82,7 +83,7 @@ def load_original_data():
     rawdata = pd.read_excel(os.path.join(data_folder, 'original', 'InflowData_1.xlsx') )
 
     # Make the first column to datetime format
-    rawdata.iloc[:,0] = pd.to_datetime(rawdata.iloc[:,0], format='%d/%m/%Y %H:%M') 
+    rawdata.iloc[:,0] = pd.to_datetime(rawdata.iloc[:,0], format='%d/%m/%Y %H:%M')
     rawdata = rawdata.rename(columns={rawdata.columns[0]: 'Date'})
 
     raw_dmas_h_cons = rawdata
@@ -99,7 +100,7 @@ def load_original_data():
     rawdata = pd.read_excel(os.path.join(data_folder, 'original', 'WeatherData_1.xlsx') )
 
     #Same stuff for weather data
-    rawdata.iloc[:,0] = pd.to_datetime(rawdata.iloc[:,0], format='%d/%m/%Y %H:%M') 
+    rawdata.iloc[:,0] = pd.to_datetime(rawdata.iloc[:,0], format='%d/%m/%Y %H:%M')
     rawdata = rawdata.rename(columns={rawdata.columns[0]: 'Date'})
     raw_weather_h = rawdata
 
@@ -112,8 +113,8 @@ def load_original_data():
 def load_splitted_data(split_strategy="final_weeks", split_size_w=4, week_selection=0, start_first_monday=True):
     """
     Loads and splits the data according to the specified strategy and parameters.
-    
-    
+
+
     :param split_strategy: The strategy for splitting the data ('final_weeks', 'random', etc.).
     :param split_size_w: The number of weeks to include in the test set (default 4).
     :param week_selection: The specific week to use as the test set (from 1 to split_size_w).
@@ -124,7 +125,7 @@ def load_splitted_data(split_strategy="final_weeks", split_size_w=4, week_select
     """
     raw_dmas_h_cons, raw_weather_h, calendar_d, _ = load_original_data()
 
-    # Use the last week as eval    
+    # Use the last week as eval
     max_date = raw_dmas_h_cons.index.max()
     eval_wea_h = raw_weather_h.loc[raw_weather_h.index > max_date,:]
     assert eval_wea_h.shape[0] == 24*7, "The evaluation week is not complete"
@@ -148,7 +149,7 @@ def load_splitted_data(split_strategy="final_weeks", split_size_w=4, week_select
             if (a_date+pd.Timedelta(hours=2)) not in raw_weather_h.index:
                 raw_weather_h.loc[a_date+pd.Timedelta(hours=2),:] = float('nan')
         else:
-            # It's autumn I go from 3 am to 2 am, hence I have 2 am twice            
+            # It's autumn I go from 3 am to 2 am, hence I have 2 am twice
             # average the two values at 2 am of that date
             if (a_date+pd.Timedelta(hours=2)) in raw_dmas_h_cons.index:
                 dmas_q_2am = raw_dmas_h_cons.loc[a_date+pd.Timedelta(hours=2),:].mean(axis=0)
@@ -162,43 +163,38 @@ def load_splitted_data(split_strategy="final_weeks", split_size_w=4, week_select
     # sort the data
     raw_dmas_h_cons.sort_index(inplace=True)
     raw_weather_h.sort_index(inplace=True)
-           
+
+    raw_dmas_h_cons['no_week'] = raw_dmas_h_cons.index.to_series().apply(lambda x:dataset_week_number(x))
+    raw_weather_h['no_week'] = raw_weather_h.index.to_series().apply(lambda x:dataset_week_number(x))
+    eval_wea_h['no_week'] = eval_wea_h.index.to_series().apply(lambda x:dataset_week_number(x))
+
     # Split the data
     if split_strategy == "final_weeks":
-        test_weeks = range(dataset_week_number(max_date)+1-split_size_w, dataset_week_number(max_date)+1)
-        
+        test_weeks = raw_dmas_h_cons['no_week'].unique()[-split_size_w:]
+
     elif split_strategy == "random_weeks":
-        # Use scikit learn train_test_split
-        raise ValueError("Not implemented yet")
-    
+        test_weeks = random.choices(raw_dmas_h_cons['no_week'].unique()[12:], k=split_size_w)
+
+    elif split_strategy == "all_weeks":
+        test_weeks = raw_dmas_h_cons['no_week'].unique()[12:]
+
     elif split_strategy == "custom1":
         # Here I want to use some specific weeks for testing to "overfit" what we will forecast
         # E.g., the previous week and the same week of the previous year
         raise ValueError("Not implemented yet")
-         # TODO: Decide which weeks to use and put it ins test_weeks 
+         # TODO: Decide which weeks to use and put it ins test_weeks
          # then simply do test_indices = index_week.isin(test_weeks)
 
     else:
         raise ValueError("Unknown split strategy: " + split_strategy)
-    
-    # Split the data
-    test_indices = pd.Series(False, index=raw_dmas_h_cons.index)
-    if week_selection > 0:
-        # should check index but let's use it to throw errors 
-        test_weeks = test_weeks[week_selection-1] 
-        test_indices[test_indices.index >= monday_of_week_number(test_weeks) & 
-                     test_indices.index < monday_of_week_number(test_weeks+1)] = True
-    else:
-        for a_week in test_weeks:
-            test_indices[(test_indices.index >= monday_of_week_number(a_week)) & 
-                         (test_indices.index < monday_of_week_number(a_week+1))] = True
-    
-    train_dmas_h_cons = raw_dmas_h_cons.loc[~test_indices,:]
-    test_dmas_h_cons = raw_dmas_h_cons.loc[test_indices,:]
-    train_weather_h = raw_weather_h.loc[~test_indices,:]
-    test_weather_h = raw_weather_h.loc[test_indices,:]
 
-    return train_dmas_h_cons, test_dmas_h_cons, train_weather_h, test_weather_h, eval_wea_h
+    # Split the data
+    if week_selection > 0:
+        # should check index but let's use it to throw errors
+        test_weeks = test_weeks[week_selection-1]
+
+
+    return raw_dmas_h_cons, raw_weather_h, eval_wea_h, test_weeks
 
 def dataset_week_number(a_date):
     """
@@ -209,7 +205,7 @@ def dataset_week_number(a_date):
     begin_date = pd.to_datetime('2021-01-04')
     if a_date < begin_date:
         return 0
-    
+
     return int((a_date - begin_date).days/7)+1
 
 def monday_of_week_number(a_week_number):
@@ -221,4 +217,3 @@ def monday_of_week_number(a_week_number):
 
 if __name__ == "__main__":
     a=load_original_data()
-    

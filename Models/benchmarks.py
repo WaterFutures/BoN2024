@@ -7,31 +7,28 @@ import numpy as np
 class PreviousWeek(Model):
     def __init__(self) -> None:
         super().__init__()
+        self.last_week = None
 
     def fit(self, X_train: pd.DataFrame) -> None:
-        pass
+        self.last_week = X_train.iloc[-24*7:, self.forecasted_dmas_idx()].to_numpy()
 
-    def forecast(self, X_train: pd.DataFrame, X_test: pd.DataFrame) -> np.ndarray:
-        last_week = X_train.iloc[-WEEK_LEN:, self.forecasted_dmas_idx()].to_numpy()
-        return np.nan_to_num(last_week) #fill with 0s because I can't return a solution with NaNs
-    
+    def forecast(self, X_test: pd.DataFrame) -> np.ndarray:
+        return np.nan_to_num(self.last_week) #fill with 0s because I can't return a solution with NaNs
+
     def name(self) -> str:
         return "Previous Week"
-    
+
     def forecasted_dmas(self) -> list:
         return DMAS_NAMES
-    
+
     def preprocess_data(self,
-                        train__dmas_h_q: pd.DataFrame, 
-                        test__dmas_h_q: pd.DataFrame, 
+                        train__dmas_h_q: pd.DataFrame,
                         train__exin_h:pd.DataFrame,
-                        test__exin_h:pd.DataFrame,
-                        eval__exin_h: pd.DataFrame) -> tuple [pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+                        test__exin_h:pd.DataFrame) -> tuple [pd.DataFrame, pd.DataFrame]:
         # We don't need the exogenous data, discard them.
         # We don't fill the data, it is unnecessary.
-        return (train__dmas_h_q, test__dmas_h_q, 
-                pd.DataFrame(), pd.DataFrame(), pd.DataFrame())
-    
+        return (train__dmas_h_q, pd.DataFrame())
+
 
 class AverageWeek(Model):
     def __init__(self) -> None:
@@ -39,28 +36,24 @@ class AverageWeek(Model):
         self.average_week = None
 
     def fit(self, X_train: pd.DataFrame) -> None:
-        pass
-
-    def forecast(self, X_train: pd.DataFrame, X_test: pd.DataFrame) -> np.ndarray:
         all_values = X_train.iloc[:, self.forecasted_dmas_idx()].to_numpy()
-        average_week = np.nanmean(all_values.reshape((-1,WEEK_LEN,all_values.shape[1])), 
+        # average at each hour, for every day of the week
+        self.average_week = np.nanmean(all_values.reshape((-1,WEEK_LEN,all_values.shape[1])),
                                        axis=0)
-        return average_week
-    
+
+    def forecast(self, X_test: pd.DataFrame) -> np.ndarray:
+        return self.average_week
+
     def name(self) -> str:
         return "Average Week"
-    
+
     def forecasted_dmas(self) -> list:
         return DMAS_NAMES
-    
+
     def preprocess_data(self,
-                        train__dmas_h_q: pd.DataFrame, 
-                        test__dmas_h_q: pd.DataFrame, 
+                        train__dmas_h_q: pd.DataFrame,
                         train__exin_h:pd.DataFrame,
-                        test__exin_h:pd.DataFrame,
-                        eval__exin_h: pd.DataFrame) -> tuple [pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+                        test__exin_h:pd.DataFrame) -> tuple [pd.DataFrame, pd.DataFrame]:
         # We don't need the exogenous data, discard them.
         # We don't fill the data, it is unnecessary.
-        return (train__dmas_h_q, test__dmas_h_q, 
-                pd.DataFrame(), pd.DataFrame(), pd.DataFrame())
-    
+        return (train__dmas_h_q, pd.DataFrame())

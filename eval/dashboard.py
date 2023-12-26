@@ -119,7 +119,6 @@ def run_dashboard(wfe):
             ]
         return options
 
-
     @callback(
         Output('table', 'data'),
         Input('pi-dropdown', 'value'),
@@ -127,6 +126,18 @@ def run_dashboard(wfe):
     )
     def table(pi, models):
         return [table_row(model, wfe.results[model]['performance_indicators'], pi) for model in models]
+
+    @callback(
+        Output('table-scores', 'data'),
+        Output('table-scores', 'columns'),
+        Input('model-checklist', 'value')
+    )
+    def table_scores(models):
+        scores = calc_scores(models, wfe.results, range(12,77))
+        print(scores)
+        columns = [{'name': model, 'id': model} for model in models]
+
+        return [[scores], columns]
         
     app.run(debug=True)
 
@@ -176,8 +187,14 @@ def layout(wfe):
                     {'name': 'DMA_I', 'id': 'DMA_I'},
                     {'name': 'DMA_J', 'id': 'DMA_J'},
                     {'name': 'Average', 'id': 'Average'},
-                ])
-        ], style={'margin': '4em'})
+                ]),
+            html.H3(children='Who would win? - Current model scores (All weeks)', style={'textAlign': 'center'}),
+            dash_table.DataTable(                                 
+                data=[],
+                id='table-scores',
+                sort_action='native',
+                columns=[])
+        ], style={'margin': '4em', 'margin-bottom': '10em'})
 
 ### Helper functions
 def table_row(model_name, results, pi):
@@ -193,3 +210,14 @@ def table_row(model_name, results, pi):
         'Average': f'{np.mean(means):.3f}+-{np.mean(stds):.2f}',
         **dma_entries
     }
+
+def calc_scores(models, results, weeks):
+    all_indicators = []
+    for model in models:
+        all_indicators.append(results[model]['performance_indicators'].loc[weeks])
+
+    all_indicators = np.stack(all_indicators)
+
+    score_tuples = zip(*np.unique(all_indicators.argmin(axis=0), return_counts=True))
+    scores = {models[model_idx]: model_score for model_idx, model_score in score_tuples}
+    return scores

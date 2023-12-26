@@ -55,7 +55,8 @@ class WaterFuturesEvaluator:
 
         results = pd.DataFrame(
             index=pd.MultiIndex.from_tuples([(week,dma) for week in test_week_idcs for dma in DMAS_NAMES], names=['Test week', 'DMA']),
-            columns=['PI1', 'PI2', 'PI3']
+            columns=['PI1', 'PI2', 'PI3'],
+            dtype=float
         )
 
         forecast = self.demand.copy()
@@ -163,7 +164,7 @@ def pi1(y_pred, y_true):
     return np.nanmean(np.abs(y_pred[:24] - y_true[:24]), axis=0)
 
 def pi2(y_pred, y_true):
-    return np.max(np.abs(y_pred[:24] - y_true[:24]), axis=0)
+    return np.nanmax(np.abs(y_pred[:24] - y_true[:24]), axis=0)
 
 def pi3(y_pred, y_true):
     return np.nanmean(np.abs(y_pred[24:] - y_true[24:]), axis=0)

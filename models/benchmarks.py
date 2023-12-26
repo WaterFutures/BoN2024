@@ -1,5 +1,5 @@
 import models
-from models.model import Model
+from models.base import Model
 import pandas as pd
 import numpy as np
 
@@ -10,16 +10,6 @@ class PreviousWeek(Model):
 
     def forecast(self, weather):
         return self.prev_week
-        
-    
-class AverageWeek(Model):
-
-    def fit(self, demands, weather):
-        demands = demands.to_numpy()
-        self.avg_week = np.nanmean(demands.reshape((demands.shape[0] // 168, 168, demands.shape[1])), axis=0)
-
-    def forecast(self, weather):
-        return self.avg_week
 
 previous_week = {
     'name': 'PrevWeek',
@@ -29,6 +19,16 @@ previous_week = {
         'weather': []
     }
 }
+
+    
+class AverageWeek(Model):
+
+    def fit(self, demands, weather):
+        demands = demands.to_numpy()
+        self.avg_week = np.nanmean(demands.reshape((demands.shape[0] // 168, 168, demands.shape[1])), axis=0)
+
+    def forecast(self, weather):
+        return self.avg_week
 
 average_week = {
     'name': 'AvgWeek',

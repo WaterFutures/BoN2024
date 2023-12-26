@@ -1,11 +1,14 @@
-from models.model import Model
+from models.base import Model
 import pandas as pd
 import numpy as np
 
-WEEK_LEN = 24 * 7
-
 from statsmodels.tsa.ar_model import AutoReg
 import pmdarima as pmd
+
+import preprocessing
+from preprocessing.simple_transforms import Logarithm, Normalize
+
+WEEK_LEN = 24 * 7
 
 class AutoRegressive(Model):
     def __init__(self, lags=WEEK_LEN):
@@ -24,13 +27,30 @@ class AutoRegressive(Model):
     def forecast(self, weather):
         pred = np.array([self.dmas_models[dma].forecast(steps=WEEK_LEN) for dma in self.dmas])
         return pred.T
-    
 
 autoreg_no_preprocess = {
     'name': 'AutoReg',
     'model': AutoRegressive(),
     'preprocessing': {
         'demand': [],
+        'weather': []
+    }
+}
+
+autoreg_log = {
+    'name': 'AutoReg_log',
+    'model': AutoRegressive(),
+    'preprocessing': {
+        'demand': [Logarithm()],
+        'weather': []
+    }
+}
+
+autoreg_log_norm = {
+    'name': 'AutoReg_log_norm',
+    'model': AutoRegressive(),
+    'preprocessing': {
+        'demand': [Logarithm(), Normalize()],
         'weather': []
     }
 }

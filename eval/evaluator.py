@@ -156,6 +156,7 @@ def load_data():
 
 ### Performance Indicators
 def performance_indicators(y_pred, y_true):
+    assert not np.any(np.isnan(y_pred)), 'Model forecasted NaN values'
     return np.vstack((pi1(y_pred, y_true), pi2(y_pred, y_true), pi3(y_pred, y_true))).T
 
 def pi1(y_pred, y_true):

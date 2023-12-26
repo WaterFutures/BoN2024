@@ -6,7 +6,7 @@ import numpy as np
 class PreviousWeek(Model):
 
     def fit(self, demands, weather):
-        self.prev_week = demands.iloc[-168:].to_numpy()
+        self.prev_week = demands.iloc[-168:].fillna(0).to_numpy()
 
     def forecast(self, weather):
         return self.prev_week

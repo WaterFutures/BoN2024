@@ -1,16 +1,15 @@
-from eval_framework.wf_evaluator import WaterFuturesEvaluator
+from new_eval_framework import WaterFuturesEvaluator
+from eval_dashboard import run_dashboard
+
+import models
+from models.benchmarks import average_week, previous_week
+from models.autoregressives import autoreg_no_preprocess
+
 
 wfe = WaterFuturesEvaluator()
 
-from Models.benchmarks import PreviousWeek, AverageWeek
-from Models.autoregressives import AutoRegressive
+wfe.add_model(previous_week)
+wfe.add_model(average_week)
+wfe.add_model(autoreg_no_preprocess)
 
-previous_week = PreviousWeek()
-average_week = AverageWeek()
-autoregressive = AutoRegressive(lags=24*7)
-
-wfe.add_model(previous_week, force=False)
-wfe.add_model(average_week, force=False)
-#wfe.add_model(autoregressive)
-
-wfe.run_dashboard()
+run_dashboard(wfe)

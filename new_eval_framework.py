@@ -86,6 +86,7 @@ class WaterFuturesEvaluator:
 
             # Forecast next week
             demand_forecast = config['model'].forecast(weather_test)
+            demand_forecast = pd.DataFrame(demand_forecast, index=demand_test.index, columns=demand_test.columns)
 
             # Transform forecast back into original unit
             for preprocessing_step in reversed(config['preprocessing']['demand']):
@@ -94,7 +95,7 @@ class WaterFuturesEvaluator:
             
             # Save forecast and calculate Performance indicators 
             forecast.iloc[24*7*test_week_idx: 24*7*(test_week_idx+1)] = demand_forecast
-            results.loc[test_week_idx] = performance_indicators(demand_forecast, demand_test.to_numpy())
+            results.loc[test_week_idx] = performance_indicators(demand_forecast, demand_test)
 
         return results, forecast
 

@@ -19,7 +19,7 @@ class WaterFuturesEvaluator:
 
         self.results = {}
 
-        self.results_folder = os.path.join(pathlib.Path(__file__).parent.resolve(), 'wfe_results')
+        self.results_folder = os.path.join(pathlib.Path(__file__).parent.parent.resolve(), 'wfe_results')
         if not os.path.exists(self.results_folder):
             os.makedirs(self.results_folder)
         self.load_saved_results()

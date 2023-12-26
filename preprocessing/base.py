@@ -9,9 +9,11 @@ class Preprocessing:
         pass
 
     def fit(self, X):
+        ''' Not Required, use if you need to save parameters '''
         pass
 
     def transform(self, X):
+        ''' Required for demands and weather '''
         return X
     
     def fit_transform(self, X):
@@ -19,6 +21,7 @@ class Preprocessing:
         return self.transform(X)
 
     def inverse_transform(self, X):
+        ''' Required for demands only '''
         return X
     
 

@@ -134,7 +134,6 @@ def run_dashboard(wfe):
     )
     def table_scores(models):
         scores = calc_scores(models, wfe.results, range(12,77))
-        print(scores)
         columns = [{'name': model, 'id': model} for model in models]
 
         return [[scores], columns]

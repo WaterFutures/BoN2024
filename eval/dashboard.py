@@ -1,8 +1,9 @@
-from dash import Dash, html, dcc, callback, Output, Input
+from dash import Dash, html, dcc, callback, Output, Input, dash_table
 import plotly.express as px
 import plotly.graph_objects as go
 import plotly.subplots as suboplots
 import pandas as pd
+import numpy as np
 
 # Constants
 DMAS_NAMES = ['DMA_A', 'DMA_B', 'DMA_C', 'DMA_D', 'DMA_E', 'DMA_F', 'DMA_G', 'DMA_H', 'DMA_I', 'DMA_J']
@@ -80,7 +81,7 @@ def run_dashboard(wfe):
         # Title and axes labels
         fig.update_xaxes(title_text="Time", matches='x', row=2, col=1)
         fig.update_yaxes(title_text="Inflow [L/s]", row=2, col=1)
-        
+
 
         fig.update_layout(height=700)
 
@@ -118,6 +119,15 @@ def run_dashboard(wfe):
             ]
         return options
 
+
+    @callback(
+        Output('table', 'data'),
+        Input('pi-dropdown', 'value'),
+        Input('model-checklist', 'value')
+    )
+    def table(pi, models):
+        return [table_row(model, wfe.results[model]['performance_indicators'], pi) for model in models]
+        
     app.run(debug=True)
 
 def layout(wfe):
@@ -146,5 +156,40 @@ def layout(wfe):
                         )
                 ], style={'width': '30%', 'display': 'inline-block'})
             ]),
+            html.H3(children='PI and Forecasts over Time', style={'textAlign': 'center'}),
             dcc.Graph(id='graph-content'),
-        ])
+            html.H3(children='Overview Table for current PI', style={'textAlign': 'center'}),
+            dash_table.DataTable(                                 
+                data=[],
+                id='table',
+                sort_action='native',
+                columns=[
+                    {'name': 'Model', 'id': 'Model'},
+                    {'name': 'DMA_A', 'id': 'DMA_A'},
+                    {'name': 'DMA_B', 'id': 'DMA_B'},
+                    {'name': 'DMA_C', 'id': 'DMA_C'},
+                    {'name': 'DMA_D', 'id': 'DMA_D'},
+                    {'name': 'DMA_E', 'id': 'DMA_E'},
+                    {'name': 'DMA_F', 'id': 'DMA_F'},
+                    {'name': 'DMA_G', 'id': 'DMA_G'},
+                    {'name': 'DMA_H', 'id': 'DMA_H'},
+                    {'name': 'DMA_I', 'id': 'DMA_I'},
+                    {'name': 'DMA_J', 'id': 'DMA_J'},
+                    {'name': 'Average', 'id': 'Average'},
+                ])
+        ], style={'margin': '4em'})
+
+### Helper functions
+def table_row(model_name, results, pi):
+    means = results[pi].groupby('DMA').mean()
+    stds = results[pi].groupby('DMA').std()
+
+    dma_entries = {}
+    for dma in means.keys():
+        dma_entries[dma] = f'{means[dma]:.3f}+-{stds[dma]:.2f}'
+
+    return {
+        'Model': model_name,
+        'Average': f'{np.mean(means):.3f}+-{np.mean(stds):.2f}',
+        **dma_entries
+    }

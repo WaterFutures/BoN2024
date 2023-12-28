@@ -6,7 +6,7 @@ class Model:
     def fit(self, demands, weather):
         pass
 
-    def forecast(self, weather):
+    def forecast(self, demand_test, weather_test):
         pass
 
         

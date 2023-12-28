@@ -24,7 +24,7 @@ class AutoRegressive(Model):
             self.dmas_models[dma] = model.fit()
         
 
-    def forecast(self, weather):
+    def forecast(self, demand_test, weather_test):
         pred = np.array([self.dmas_models[dma].forecast(steps=WEEK_LEN) for dma in self.dmas])
         return pred.T
 
@@ -70,6 +70,6 @@ class Arima(Model):
                                    trace=True)
             self.dmas_models[dma] = model
 
-    def forecast(self, weather):
+    def forecast(self, demand_test, weather_test):
         pred = np.array([self.dmas_models[dma].predict(n_periods=WEEK_LEN) for dma in self.dmas])
         return pred.T

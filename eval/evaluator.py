@@ -3,19 +3,21 @@ import pandas as pd
 import os
 import pathlib
 import pickle
+import tqdm
 
 DMAS_NAMES = ['DMA_A', 'DMA_B', 'DMA_C', 'DMA_D', 'DMA_E', 'DMA_F', 'DMA_G', 'DMA_H', 'DMA_I', 'DMA_J']
+WEEK_LEN = 24 * 7
 
 class WaterFuturesEvaluator:
 
     def __init__(self):
         # Load data, omitting the last 4 weeks
         demand, weather = load_data()
-        self.demand = demand.iloc[:-24*7*4]
-        self.weather = weather.iloc[:-24*7*4]
+        self.demand = demand.iloc[:-WEEK_LEN*4]
+        self.weather = weather.iloc[:-WEEK_LEN*4]
 
         self.week_start = 12
-        self.total_weeks = self.demand.shape[0] // (24*7)
+        self.total_weeks = self.demand.shape[0] // (WEEK_LEN)
 
         self.results = {}
 
@@ -36,7 +38,7 @@ class WaterFuturesEvaluator:
         # Check force condition and skip computation if desired
         if (not force) and (config['name'] in self.results.keys()):
             return
-        
+
         # Evaluate model
         performance_indicators, forecast = self.eval_model(config)
         self.results[config['name']] = {
@@ -62,12 +64,17 @@ class WaterFuturesEvaluator:
         forecast = self.demand.copy()
         forecast.iloc[:] = pd.NA
 
-        for test_week_idx in test_week_idcs:
+        for test_week_idx in tqdm.tqdm(test_week_idcs):
             # Load current train and test data
-            demand_train = self.demand.iloc[:24*7*test_week_idx]
-            weather_train = self.weather.iloc[:24*7*test_week_idx]
-            demand_test = self.demand.iloc[24*7*test_week_idx: 24*7*(test_week_idx+1)]
-            weather_test = self.weather.iloc[24*7*test_week_idx: 24*7*(test_week_idx+1)]
+            demand_train = self.demand.iloc[:WEEK_LEN*test_week_idx]
+            weather_train = self.weather.iloc[:WEEK_LEN*test_week_idx]
+            ground_truth = self.demand.iloc[WEEK_LEN*test_week_idx: WEEK_LEN*(test_week_idx+1)]
+            weather_test = self.weather.iloc[WEEK_LEN*test_week_idx: WEEK_LEN*(test_week_idx+1)]
+
+            # If applicable, prepare test dataframes
+            if 'prepare_test_dfs' in config['preprocessing']:
+                for preprocessing_step in config['preprocessing']['prepare_test_dfs']:
+                    demand_test, weather_test = preprocessing_step.transform(demand_train, weather_train, weather_test)
 
             # Apply preprocessing for demands
             for preprocessing_step in config['preprocessing']['demand']:
@@ -80,31 +87,39 @@ class WaterFuturesEvaluator:
             # Train model
             config['model'].fit(demand_train, weather_train)
 
+            # If applicable, prepare test dataframes
+            if 'prepare_test_dfs' in config['preprocessing']:
+                for preprocessing_step in config['preprocessing']['demand']:
+                    demand_test = preprocessing_step.transform(demand_test)
 
-            # Apply preprocessing for test weather
-            for preprocessing_step in config['preprocessing']['weather']:
-                weather_train = preprocessing_step.transform(weather_train)
+                for preprocessing_step in config['preprocessing']['weather']:
+                    weather_test = preprocessing_step.transform(weather_test)
+
+                demand_test = demand_test.iloc[-WEEK_LEN:,:]
+                weather_test = weather_test.iloc[-WEEK_LEN:,:]
+            else:
+                demand_test, weather_test = pd.DataFrame(), pd.DataFrame()
 
             # Forecast next week
-            demand_forecast = config['model'].forecast(weather_test)
-            demand_forecast = pd.DataFrame(demand_forecast, index=demand_test.index, columns=demand_test.columns)
+            demand_forecast = config['model'].forecast(demand_test, weather_test)
+            demand_forecast = pd.DataFrame(demand_forecast, index=ground_truth.index, columns=ground_truth.columns)
 
             # Transform forecast back into original unit
             for preprocessing_step in reversed(config['preprocessing']['demand']):
                 demand_forecast = preprocessing_step.inverse_transform(demand_forecast)
 
-            
-            # Save forecast and calculate Performance indicators 
-            forecast.iloc[24*7*test_week_idx: 24*7*(test_week_idx+1)] = demand_forecast
-            results.loc[test_week_idx] = performance_indicators(demand_forecast, demand_test)
+
+            # Save forecast and calculate Performance indicators
+            forecast.iloc[WEEK_LEN*test_week_idx: WEEK_LEN*(test_week_idx+1)] = demand_forecast
+            results.loc[test_week_idx] = performance_indicators(demand_forecast, ground_truth)
 
         return results, forecast
 
-    
+
 ### Data loading helpers
 def adjust_summer_time(df):
     days_missing_hour = ['2021-03-28', '2022-03-27', '2023-03-26']
-    
+
     # Copy 1AM and 3AM data to 2AM for days missing 2AM
     for day in days_missing_hour:
         df = pd.concat([df, df.loc[f'{day} 01:00:00':f'{day} 03:00:00']
@@ -112,7 +127,7 @@ def adjust_summer_time(df):
                       .assign(Date=pd.to_datetime(f'{day} 02:00:00'))
                       .set_index('Date')]) \
                         .sort_index()
-    
+
     # Average 2AM values for days with duplicates
     return df.groupby('Date').mean().sort_index()
 
@@ -125,7 +140,7 @@ def load_data():
     rawdata = pd.read_excel(os.path.join(data_folder, 'original', 'InflowData_1.xlsx') )
 
     # Make the first column to datetime format
-    rawdata.iloc[:,0] = pd.to_datetime(rawdata.iloc[:,0], format='%d/%m/%Y %H:%M') 
+    rawdata.iloc[:,0] = pd.to_datetime(rawdata.iloc[:,0], format='%d/%m/%Y %H:%M')
     rawdata = rawdata.rename(columns={rawdata.columns[0]: 'Date'})
 
     demand = rawdata
@@ -138,7 +153,7 @@ def load_data():
     rawdata = pd.read_excel(os.path.join(data_folder, 'original', 'WeatherData_1.xlsx') )
 
     #Same stuff for weather data
-    rawdata.iloc[:,0] = pd.to_datetime(rawdata.iloc[:,0], format='%d/%m/%Y %H:%M') 
+    rawdata.iloc[:,0] = pd.to_datetime(rawdata.iloc[:,0], format='%d/%m/%Y %H:%M')
     rawdata = rawdata.rename(columns={rawdata.columns[0]: 'Date'})
     weather = rawdata
 

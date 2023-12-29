@@ -32,7 +32,7 @@ class WaterFuturesEvaluator:
             cur_file_path = os.path.join(self.results_folder, cur_file)
             cur_model_name = '.'.join(cur_file.split('.')[:-1])
             with open(cur_file_path, 'rb') as f:
-                self.results[cur_model_name] = pickle.load(f)
+                self.results[cur_model_name] = pd.compat.pickle_compat.load(f)
 
     def add_model(self, config, force=False):
         # Check force condition and skip computation if desired

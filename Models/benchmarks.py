@@ -7,13 +7,13 @@ import numpy as np
 class PreviousWeek(Model):
     def __init__(self) -> None:
         super().__init__()
-        self.last_week = None
 
     def fit(self, X_train: pd.DataFrame) -> None:
-        self.last_week = X_train.iloc[-24*7:, self.forecasted_dmas_idx()].to_numpy()
+        pass
 
-    def forecast(self, X_test: pd.DataFrame) -> np.ndarray:
-        return np.nan_to_num(self.last_week) #fill with 0s because I can't return a solution with NaNs
+    def forecast(self, X_train: pd.DataFrame, X_test: pd.DataFrame) -> np.ndarray:
+        last_week = X_train.iloc[-WEEK_LEN:, self.forecasted_dmas_idx()].to_numpy()
+        return np.nan_to_num(last_week) #fill with 0s because I can't return a solution with NaNs
     
     def name(self) -> str:
         return "Previous Week"
@@ -39,13 +39,13 @@ class AverageWeek(Model):
         self.average_week = None
 
     def fit(self, X_train: pd.DataFrame) -> None:
-        all_values = X_train.iloc[:, self.forecasted_dmas_idx()].to_numpy()
-        # average at each hour, for every day of the week
-        self.average_week = np.nanmean(all_values.reshape((-1,WEEK_LEN,all_values.shape[1])), 
-                                       axis=0)
+        pass
 
-    def forecast(self, X_test: pd.DataFrame) -> np.ndarray:
-        return self.average_week
+    def forecast(self, X_train: pd.DataFrame, X_test: pd.DataFrame) -> np.ndarray:
+        all_values = X_train.iloc[:, self.forecasted_dmas_idx()].to_numpy()
+        average_week = np.nanmean(all_values.reshape((-1,WEEK_LEN,all_values.shape[1])), 
+                                       axis=0)
+        return average_week
     
     def name(self) -> str:
         return "Average Week"

@@ -20,7 +20,7 @@ class Model:
     def fit(self, X_train: pd.DataFrame) -> None:
         pass
 
-    def forecast(self, X_test: pd.DataFrame) -> np.ndarray:
+    def forecast(self, X_train: pd.DataFrame, X_test: pd.DataFrame) -> np.ndarray:
         pass
 
     def name (self) -> str:

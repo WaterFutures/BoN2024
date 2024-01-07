@@ -4,6 +4,8 @@ import models
 from models.benchmarks import average_week, previous_week
 from models.autoregressives import autoreg_no_preprocess, autoreg_log, autoreg_log_norm
 from models.LGBM import lgbm_simple
+from models.TSMix import tsmix
+from models.pattern_regression import pattern_regression
 
 
 wfe = WaterFuturesEvaluator()
@@ -13,5 +15,7 @@ wfe.add_model(average_week)
 wfe.add_model(autoreg_no_preprocess)
 wfe.add_model(autoreg_log)
 wfe.add_model(lgbm_simple)
+wfe.add_model(pattern_regression)
+wfe.add_model(tsmix)
 
 run_dashboard(wfe)

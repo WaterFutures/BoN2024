@@ -137,6 +137,16 @@ def run_dashboard(wfe):
         columns = [{'name': model, 'id': model} for model in models]
 
         return [[scores], columns]
+    
+    @callback(
+        Output('table-ranks', 'data'),
+        Input('model-checklist', 'value')
+    )
+    def table_ranks(models):
+        report = wfe.ranks_report(models)
+        columns = [{'Model': model, **report.loc[model].to_dict()} for model in models]
+
+        return columns
         
     app.run(debug=True)
 
@@ -192,7 +202,29 @@ def layout(wfe):
                 data=[],
                 id='table-scores',
                 sort_action='native',
-                columns=[])
+                columns=[]),
+            html.H3(children='Ranks over all DMAs and all PIs', style={'textAlign': 'center'}),
+            dash_table.DataTable(                                 
+                data=[],
+                id='table-ranks',
+                sort_action='native',
+                columns=[
+                    {'name': 'Model', 'id': 'Model'},
+                    {'name': 'PI1', 'id': 'PI1', 'type':'numeric', 'format': {'specifier': '.2f'}},
+                    {'name': 'PI2', 'id': 'PI2', 'type':'numeric', 'format': {'specifier': '.2f'}},
+                    {'name': 'PI3', 'id': 'PI3', 'type':'numeric', 'format': {'specifier': '.2f'}},
+                    {'name': 'Rank_A', 'id': 'Rank_A', 'type':'numeric', 'format': {'specifier': '.2f'}},
+                    {'name': 'Rank_B', 'id': 'Rank_B', 'type':'numeric', 'format': {'specifier': '.2f'}},
+                    {'name': 'Rank_C', 'id': 'Rank_C', 'type':'numeric', 'format': {'specifier': '.2f'}},
+                    {'name': 'Rank_D', 'id': 'Rank_D', 'type':'numeric', 'format': {'specifier': '.2f'}},
+                    {'name': 'Rank_E', 'id': 'Rank_E', 'type':'numeric', 'format': {'specifier': '.2f'}},
+                    {'name': 'Rank_F', 'id': 'Rank_F', 'type':'numeric', 'format': {'specifier': '.2f'}},
+                    {'name': 'Rank_G', 'id': 'Rank_G', 'type':'numeric', 'format': {'specifier': '.2f'}},
+                    {'name': 'Rank_H', 'id': 'Rank_H', 'type':'numeric', 'format': {'specifier': '.2f'}},
+                    {'name': 'Rank_I', 'id': 'Rank_I', 'type':'numeric', 'format': {'specifier': '.2f'}},
+                    {'name': 'Rank_J', 'id': 'Rank_J', 'type':'numeric', 'format': {'specifier': '.2f'}},
+                    {'name': 'Average', 'id': 'Average', 'type':'numeric', 'format': {'specifier': '.2f'}},
+                ]),
         ], style={'margin': '4em', 'margin-bottom': '10em'})
 
 ### Helper functions

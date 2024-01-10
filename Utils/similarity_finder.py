@@ -1,4 +1,4 @@
-import data_loader
+import Utils.data_loader as data_loader
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 import numpy as np

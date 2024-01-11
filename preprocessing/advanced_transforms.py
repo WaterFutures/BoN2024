@@ -157,6 +157,12 @@ class LGBM_demand_features(Preprocessing):
             X[dma+'_lag4_max_lagged'] = pd.concat([X.groupby(['hour'])[dma].shift(7), X.groupby(['hour'])[dma].shift(14), X.groupby(['hour'])[dma].shift(21), X.groupby(['hour'])[dma].shift(28)], axis=1).max(axis=1)
             lagged_cols += [dma+'_lag4_avg_lagged',dma+'_lag4_min_lagged',dma+'_lag4_max_lagged']
 
+            # The average, min and max over weeks 5-8 during the same hour and same day. It captures changes in seasonality.
+            X[dma+'_lag8_avg_lagged'] = pd.concat([X.groupby(['hour'])[dma].shift(35), X.groupby(['hour'])[dma].shift(42), X.groupby(['hour'])[dma].shift(49), X.groupby(['hour'])[dma].shift(56)], axis=1).mean(axis=1)
+            X[dma+'_lag8_min_lagged'] = pd.concat([X.groupby(['hour'])[dma].shift(35), X.groupby(['hour'])[dma].shift(42), X.groupby(['hour'])[dma].shift(49), X.groupby(['hour'])[dma].shift(56)], axis=1).min(axis=1)
+            X[dma+'_lag8_max_lagged'] = pd.concat([X.groupby(['hour'])[dma].shift(35), X.groupby(['hour'])[dma].shift(42), X.groupby(['hour'])[dma].shift(49), X.groupby(['hour'])[dma].shift(56)], axis=1).max(axis=1)
+            lagged_cols += [dma+'_lag8_avg_lagged',dma+'_lag8_min_lagged',dma+'_lag8_max_lagged']
+
             for i in [24,48,72,96,120,144]:
                 X[dma+'_lag_'+str(i)] = X[dma].shift(WEEK_LEN+i)
 

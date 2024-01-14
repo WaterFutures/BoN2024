@@ -97,8 +97,8 @@ class WaterFuturesEvaluator:
                 for preprocessing_step in config['preprocessing']['weather']:
                     weather_test = preprocessing_step.transform(weather_test)
 
-                demand_test = demand_test.iloc[-WEEK_LEN:,:]
-                weather_test = weather_test.iloc[-WEEK_LEN:,:]
+                # demand_test = demand_test.iloc[-WEEK_LEN:,:]
+                # weather_test = weather_test.iloc[-WEEK_LEN:,:]
             else:
                 # Prepare test weather anyways
                 for preprocessing_step in config['preprocessing']['weather']:

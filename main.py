@@ -9,13 +9,14 @@ from models.TSMix import tsmix
 from models.pattern_regression import pattern_regression
 from models.RollingAverageWeek import rolling_average_week
 from models.prototype_based import prototype_3, prototype_5, prototype_7, prototype_fe, prototype_fe_subset 
+from models.wavenet import wavenet_lin, wavenet_log
 wfe = WaterFuturesEvaluator()
 
 # Benchamrks
 wfe.add_model(previous_week)
 wfe.add_model(average_week)
 wfe.add_model(autoreg_no_preprocess)
-wfe.add_model(rolling_average_week(8))
+#wfe.add_model(rolling_average_week(8))
 
 # Models
 wfe.add_model(lgbm_simple)
@@ -27,5 +28,7 @@ wfe.add_model(prototype_fe_subset)
 wfe.add_model(lgbm_robust)
 wfe.add_model(pattern_regression)
 wfe.add_model(tsmix)
+wfe.add_model(wavenet_lin)
+wfe.add_model(wavenet_log)
 
 run_dashboard(wfe)

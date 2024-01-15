@@ -7,7 +7,7 @@ from models.autoregressives import autoreg_no_preprocess, autoreg_log, autoreg_l
 from models.LGBM import lgbm_simple, lgbm_robust
 from models.TSMix import tsmix
 from models.pattern_regression import pattern_regression
-from models.RollingAverageWeek import rolling_average_week
+from models.rolling_average_week import RollingAverageWeek
 from models.prototype_based import prototype_3, prototype_5, prototype_7, prototype_fe, prototype_fe_subset 
 from models.wavenet import wavenet_lin, wavenet_log
 wfe = WaterFuturesEvaluator()

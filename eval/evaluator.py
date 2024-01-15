@@ -1,5 +1,7 @@
 import numpy as np
 import pandas as pd
+import scipy as sp
+import scipy.stats
 import os
 import pathlib
 import pickle
@@ -118,6 +120,23 @@ class WaterFuturesEvaluator:
             results.loc[test_week_idx] = performance_indicators(demand_forecast, ground_truth)
 
         return results, forecast
+    
+    def ranks_report(self, model_names):
+        df_shape = self.results[model_names[0]]['performance_indicators']
+        shape = (*df_shape.index.levshape, df_shape.shape[1])
+        # Collect all performance indicators in shape (model, week, dma, PI)
+        performance_indicators = np.array([self.results[model_name]['performance_indicators'].to_numpy().reshape(shape) for model_name in model_names])
+
+        # Calculate ranks
+        ranks = sp.stats.rankdata(performance_indicators, axis=0)
+        ranks_pis = np.nanmean(ranks, axis=(1, 2))
+        ranks_dmas = np.nanmean(ranks, axis=(1, 3))
+        ranks_average = np.nanmean(ranks, axis=(1, 2, 3))[:,np.newaxis]
+
+        # Return rank report dataframe
+        return pd.DataFrame(np.concatenate((ranks_pis, ranks_dmas, ranks_average), axis=1), 
+                            index=model_names, 
+                            columns=['PI1', 'PI2', 'PI3', *[f'Rank_{x}' for x in ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']], 'Average'])
 
 
 ### Data loading helpers

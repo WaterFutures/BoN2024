@@ -3,7 +3,7 @@ import os
 from sklearn.model_selection import train_test_split
 import holidays
 
-from constants import WEEK_LEN
+WEEK_LEN = 24*7
 
 def load_calendar():
     # Calendar, with holidays and weekends

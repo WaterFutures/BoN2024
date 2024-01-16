@@ -1,2 +1,0 @@
-DAY_LEN = 24
-WEEK_LEN = 7*DAY_LEN

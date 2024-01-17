@@ -28,3 +28,28 @@ class DewPoint(Preprocessing):
     def transform(self, X):
         X['dew_point'] = X[['Temperature','Humidity','Windspeed']].apply(lambda x:dew_point(temperature=Temp(x[0], 'c'), humidity=x[1]).c, axis=1)
         return X
+    
+
+class AmountOfRainDecayed(Preprocessing):
+
+    def __init__(self, discount_factor=0.9):
+        super().__init__()
+        self.discount_factor = discount_factor
+
+    def transform(self, X):
+        last_rain_vol = X['Rain'].copy()
+        lasti = last_rain_vol.index[0]
+
+        for i, s in last_rain_vol.items():
+            last_rain_vol.loc[i] += last_rain_vol.loc[lasti] * self.discount_factor
+            lasti = i
+        
+        X['AmountOfRain'] = last_rain_vol
+        
+        return X
+
+
+
+
+    
+    

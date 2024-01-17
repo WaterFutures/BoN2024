@@ -1,6 +1,6 @@
 from preprocessing.base import Preprocessing
 from Utils.weather_features import feels_like, wind_chill, heat_index, dew_point, Temp
-   
+import pandas as pd
     
 class RealFeel(Preprocessing):
 
@@ -27,8 +27,49 @@ class DewPoint(Preprocessing):
 
     def transform(self, X):
         X['dew_point'] = X[['Temperature','Humidity','Windspeed']].apply(lambda x:dew_point(temperature=Temp(x[0], 'c'), humidity=x[1]).c, axis=1)
+        return X    
+
+class DaysSinceRain(Preprocessing):
+
+    def transform(self, X):
+        X['temp'] = X['Rain'].eq(0)
+        X['days_since_rain'] = (X['temp'] * (X.groupby((X['temp'] != X['temp'].shift()).cumsum()).cumcount() + 1))
+        X.drop(columns=['temp'], inplace=True)
         return X
     
+"""Cooling and Heating degree days, defined acccording to 
+https://www.eia.gov/energyexplained/units-and-calculators/degree-days.php#:~:text=Cooling%20degree%20days%20(CDDs)%20are,two%20days%20is%2033%20CDDs.
+"""
+class CoolingDegreeDay(Preprocessing):
+
+    def __init__(self, base_temperature=18) -> None:
+        self.base_temperature = base_temperature
+        
+    def transform(self, X):
+        # Compute daily mean temperature
+        daily_mean_temp = X['Temperature'].groupby(pd.Grouper(freq='D')).mean()
+        # CDD is the difference between daily mean temperature and base temperature
+        X['cdd'] = daily_mean_temp.apply(lambda x: max(0, x - self.base_temperature)).resample('H').ffill()
+        # Smooth out the CDD
+        X['cdd'] = X['cdd'].rolling(24*3).mean()
+
+        return X
+
+
+class HeatingDegreeDay(Preprocessing):
+
+    def __init__(self, base_temperature=18) -> None :
+        self.base_temperature = base_temperature
+        
+    def transform(self, X):
+        # Compute daily mean temperature
+        daily_mean_temp = X['Temperature'].groupby(pd.Grouper(freq='D')).mean()
+        # HDD is the difference between base temperature and daily mean temperature
+        X['hdd'] = daily_mean_temp.apply(lambda x: max(0, self.base_temperature - x)).resample('H').ffill()
+        # Smooth out the HDD
+        X['hdd'] = X['hdd'].rolling(24*3).mean()
+
+        return X
 
 class AmountOfRainDecayed(Preprocessing):
 

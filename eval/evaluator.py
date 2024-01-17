@@ -18,7 +18,7 @@ class WaterFuturesEvaluator:
         self.demand = demand.iloc[:-WEEK_LEN*4]
         self.weather = weather.iloc[:-WEEK_LEN*4]
 
-        self.week_start = 12
+        self.week_start = 12 #12
         self.total_weeks = self.demand.shape[0] // (WEEK_LEN)
 
         self.results = {}

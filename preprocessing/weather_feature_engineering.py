@@ -91,6 +91,10 @@ class AmountOfRainDecayed(Preprocessing):
 
 
 
-
+class RemoveBasicFeatures(Preprocessing):
+    def transform(self, X):
+        X = X.drop(columns=['Rain', 'Temperature', 'Humidity', 'Windspeed'])
+        
+        return X
     
     

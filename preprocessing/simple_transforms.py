@@ -29,7 +29,22 @@ class Normalize(Preprocessing):
     
 
 
+class SummarizeDays(Preprocessing):
+    
+    def transform(self, X):
+        # print(X.head())
+        data_aggregated = pd.DataFrame(columns=X.columns)
+        for c in X.columns:
+            data = X[c].to_numpy()
+            # print(data.shape)
+            mean = []
+            for i in range(int(len(data)/24)):
+                mean.append(np.mean(data[i*24:(i+1)*24]))
+            mean = np.hstack(mean)
+            # print(mean.shape)
+            data_aggregated[c]=mean
 
+        return data_aggregated
 
 class LinearInterpolation(Preprocessing):
 

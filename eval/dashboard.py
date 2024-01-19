@@ -133,7 +133,8 @@ def run_dashboard(wfe):
         Input('model-checklist', 'value')
     )
     def table_scores(models):
-        scores = calc_scores(models, wfe.results, range(12,77))
+        # Start at 13 instead of 12 to be compatible with the ensembled files
+        scores = calc_scores(models, wfe.results, range(13,77))
         columns = [{'name': model, 'id': model} for model in models]
 
         return [[scores], columns]

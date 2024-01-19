@@ -122,10 +122,11 @@ class WaterFuturesEvaluator:
         return results, forecast
     
     def ranks_report(self, model_names):
-        df_shape = self.results[model_names[0]]['performance_indicators']
+        # The .loc[:13] makes this compatible with the ensembled files
+        df_shape = self.results[model_names[0]]['performance_indicators'].loc[13:]
         shape = (*df_shape.index.levshape, df_shape.shape[1])
         # Collect all performance indicators in shape (model, week, dma, PI)
-        performance_indicators = np.array([self.results[model_name]['performance_indicators'].to_numpy().reshape(shape) for model_name in model_names])
+        performance_indicators = np.array([self.results[model_name]['performance_indicators'].loc[13:].to_numpy().reshape(shape) for model_name in model_names])
 
         # Calculate ranks
         ranks = sp.stats.rankdata(performance_indicators, axis=0)

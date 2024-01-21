@@ -67,6 +67,10 @@ def dataset_week_number(a_date):
 
 class LGBM_demand_features(Preprocessing):
 
+    def __init__(self, no_last_week) -> None:
+        super().__init__()
+        self.no_last_week = no_last_week
+
     def transform(self, X):
         X['weekday'] = X.index.weekday + 1
         X['hour'] = X.index.hour
@@ -114,17 +118,29 @@ class LGBM_demand_features(Preprocessing):
             lagged_cols += [dma+'_lumpiness_lagged',dma+'_stability_lagged']
 
             models = [OptimizedTheta(season_length=24, decomposition_type='multiplicative')]
-            for w in list(np.sort(X['no_week'].unique())[2:-1]):
+            if self.no_last_week == 1:
+                selected_weeks = list(np.sort(X['no_week'].unique())[2:-1])
+            else:
+                selected_weeks = list(np.sort(X['no_week'].unique())[2:])
+            # Note that the default algorithms set no_last_week = 1. This means that the last week of Training
+            # data and the whole test data for the features [dma+'_dec_0_lagged', dma+'_smooth_lagged', dma+'_theta_lagged']
+            # will contain nan values. I have used this technique in various competitions with good results.
+            # The rationale is that nan values can act as placeholders, and their presence in the last week will lead the model 
+            # to generalize better to unseen data. Moreover, time-series data exhibit temporal patterns, and having nan values in the feature 
+            # for the last week could signal to the model that it needs to pay special attention to this temporal segment.
+            for w in selected_weeks:
+                X_w = X.loc[X['no_week'] < w, dma]
+
                 # Exponential smoothing of the series. This feature together with the next 2, try to capture the standard patterns
                 # of the series in different ways. It only uses data from the previous week. This is because the only seasonality within a week is a 24 hour
                 # seasonality, whereas over longer horizons, things get less obvious
-                model = ExponentialSmoothing(X.loc[X['no_week'] < w, dma].iloc[-WEEK_LEN:].reset_index(drop=True).astype('float64'), trend="mul", seasonal="mul", seasonal_periods=24)
+                model = ExponentialSmoothing(X_w.iloc[-WEEK_LEN:].reset_index(drop=True).astype('float64'), trend="mul", seasonal="mul", seasonal_periods=24)
                 fit = model.fit()
                 pred = fit.forecast(WEEK_LEN)
                 X.loc[X['no_week'] == w, dma+'_smooth_lagged'] = pred.values
 
                 # Use the theta model to decompose a series (in a similar logic to FFT) and forecast
-                df_theta = X.loc[X['no_week'] < w, dma].iloc[-WEEK_LEN:].reset_index().rename(columns={'Date':'ds',dma:'y'})
+                df_theta = X_w.iloc[-WEEK_LEN:].reset_index().rename(columns={'Date':'ds',dma:'y'})
                 df_theta['unique_id'] = dma
                 sf = StatsForecast(df=df_theta, models=models,freq='H',n_jobs=-1)
                 sf.fit()
@@ -133,9 +149,10 @@ class LGBM_demand_features(Preprocessing):
 
                 # Something like a FFT, but it decomposes the series into two subseries: seasonal + trend and residuals. Those 3 features are
                 # correlated but not too much (so they capture different aspects)
-                dec = decompose_into_n_signals(X.loc[X['no_week'] < w, dma].iloc[-WEEK_LEN:].reset_index(drop=True).astype('float64'), 2)
+                dec = decompose_into_n_signals(X_w.iloc[-WEEK_LEN:].reset_index(drop=True).astype('float64'), 2)
                 X.loc[X['no_week'] == w, dma+'_dec_0_lagged'] = dec[0]
                 X.loc[X['no_week'] == w, dma+'_dec_1_lagged'] = dec[1]
+
             lagged_cols += [dma+'_dec_0_lagged', dma+'_smooth_lagged', dma+'_theta_lagged']
 
             if (dma == 'DMA_A'):
@@ -144,6 +161,7 @@ class LGBM_demand_features(Preprocessing):
                 # DMA A is gives information of whether there were patters in the previous week
                 X[dma+'_jb_lagged'] = X[dma+'_dec_1_lagged'].rolling(WEEK_LEN).apply(lambda x:ss.jarque_bera(x.values).statistic)
                 lagged_cols += [dma+'_jb_lagged']
+
 
             # The ratio of current demand to the rolling 24 hour average. It captures regime changes
             lag = 24
@@ -157,7 +175,6 @@ class LGBM_demand_features(Preprocessing):
             X[dma+'_lag4_max_lagged'] = pd.concat([X.groupby(['hour'])[dma].shift(7), X.groupby(['hour'])[dma].shift(14), X.groupby(['hour'])[dma].shift(21), X.groupby(['hour'])[dma].shift(28)], axis=1).max(axis=1)
             lagged_cols += [dma+'_lag4_avg_lagged',dma+'_lag4_min_lagged',dma+'_lag4_max_lagged']
 
-            # The average, min and max over weeks 5-8 during the same hour and same day. It captures changes in seasonality.
             X[dma+'_lag8_avg_lagged'] = pd.concat([X.groupby(['hour'])[dma].shift(35), X.groupby(['hour'])[dma].shift(42), X.groupby(['hour'])[dma].shift(49), X.groupby(['hour'])[dma].shift(56)], axis=1).mean(axis=1)
             X[dma+'_lag8_min_lagged'] = pd.concat([X.groupby(['hour'])[dma].shift(35), X.groupby(['hour'])[dma].shift(42), X.groupby(['hour'])[dma].shift(49), X.groupby(['hour'])[dma].shift(56)], axis=1).min(axis=1)
             X[dma+'_lag8_max_lagged'] = pd.concat([X.groupby(['hour'])[dma].shift(35), X.groupby(['hour'])[dma].shift(42), X.groupby(['hour'])[dma].shift(49), X.groupby(['hour'])[dma].shift(56)], axis=1).max(axis=1)
@@ -171,9 +188,9 @@ class LGBM_demand_features(Preprocessing):
             lagged_cols += [dma+'_lag_prev_week_avg_lagged']
 
 
-            # Some features that capture information for all dmas except for the chosen dma. All features below, try to bring 
-            # information from other series in the form of average, min, max and std across the other DMAs. It is important to 
-            # divide each DMA by the mean consumption per user in order for everything to be comparable. 
+            # Some features that capture information for all dmas except for the chosen dma. All features below, try to bring
+            # information from other series in the form of average, min, max and std across the other DMAs. It is important to
+            # divide each DMA by the mean consumption per user in order for everything to be comparable.
             rest_DMAs = list(set(DMAS_NAMES) - set([dma]))
             X['avg'] = X[rest_DMAs].div(dmas_characteristics.loc[dmas_characteristics.index.isin(rest_DMAs),'mean_per_user'].values, axis=1).mean(axis=1)
 
@@ -206,20 +223,20 @@ class LGBM_weather_features(Preprocessing):
         X['wind_chill'] = X[['Temperature','Humidity','Windspeed']].apply(lambda x:wind_chill(temperature=Temp(x[0], 'c'), wind_speed=x[2]).c, axis=1)
         X['heat_index'] = X[['Temperature','Humidity','Windspeed']].apply(lambda x:heat_index(temperature=Temp(x[0], 'c'), humidity=x[1]).c, axis=1)
         X['dew_point'] = X[['Temperature','Humidity','Windspeed']].apply(lambda x:dew_point(temperature=Temp(x[0], 'c'), humidity=x[1]).c, axis=1)
-        X['cdd'] = X.loc[X['Temperature'] < 18, 'Temperature'].transform(lambda x:(18 - x).rolling(24).mean())
-        X['cdd'] = X['cdd'].fillna(0)
+        X['hdd'] = X.loc[X['Temperature'] < 18, 'Temperature'].transform(lambda x:(18 - x).rolling(24).mean())
+        X['hdd'] = X['hdd'].fillna(0)
 
-        weather_cols = ['Rain','real_feel','wind_chill','heat_index','dew_point','cdd','days_since_rain']
+        weather_cols = ['Rain','real_feel','wind_chill','heat_index','dew_point','hdd','days_since_rain']
 
         X['hour'] = X.index.hour
         weather_lagged_cols = []
-        # For the following weather features, get the average values across the same hour over the last 4 days (captures changes in seasonality)
-        # and the average during the last four days (to capture changes in mean)
+        # For the following weather features, get the ewm average values across the same hour during previous days (captures changes in seasonality)
+        # and the ewm average during the previous days (to capture changes in mean)
         w_cols = ['real_feel','heat_index','wind_chill','dew_point']
         for col in w_cols:
-            X[col+'_lag4_avg'] = X.groupby(['hour'])[col].shift(1).rolling(4).mean()
-            X[col+'_lag4_avg24'] = X[col].rolling(24*4).mean()
-            weather_lagged_cols += [col+'_lag4_avg',col+'_lag4_avg24']
+            X[col+'_ewm_avg'] = X.groupby(['hour'])[col].shift(1).ewm(alpha=0.6).mean()
+            X[col+'_ewm_avg24'] = X[col].ewm(alpha=0.6).mean()
+            weather_lagged_cols += [col+'_ewm_avg',col+'_ewm_avg24']
 
         return X[weather_cols + weather_lagged_cols]
 

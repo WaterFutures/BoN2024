@@ -5,6 +5,8 @@ import scipy.stats
 import os
 import pathlib
 import pickle
+from itertools import chain
+from scipy import stats
 
 DMAS_NAMES = ['DMA_A', 'DMA_B', 'DMA_C', 'DMA_D', 'DMA_E', 'DMA_F', 'DMA_G', 'DMA_H', 'DMA_I', 'DMA_J']
 WEEK_LEN = 24 * 7
@@ -35,7 +37,7 @@ class WaterFuturesEnsembler:
         self.model_performances = {}
         self.forecasts = {}
     '''
-        
+
     def add_model(self, config):
         self.model_configs.append(config)
 
@@ -45,15 +47,18 @@ class WaterFuturesEnsembler:
 
         # Evaluate candidate models on those weeks
         self.eval_models()
-        
+
         # Calculate best model of test weeks for first 24h / the rest
-        self.find_best_models()
+        #self.find_best_models()
+        self.find_best_models_v2(5)
 
         # Make forecast for selected best models
-        self.generate_forecasts()
+        #self.generate_forecasts()
+        self.generate_forecasts_v2()
 
         # Combine forecasts to use best models in each situation
-        self.combine_forecasts()
+        #self.combine_forecasts()
+        self.combine_forecasts_v2()
 
         # Save eneseble forecast to disk
         # TODO
@@ -90,6 +95,7 @@ class WaterFuturesEnsembler:
             # Save performances
             self.model_performances[config['name']] = cur_performances
 
+
     def find_best_models(self):
         # Create numpy array with model names to be able to list-index them
         model_names = np.array([config['name'] for config in self.model_configs])
@@ -98,18 +104,40 @@ class WaterFuturesEnsembler:
         average_pis = np.stack([self.model_performances[model].groupby('DMA').mean().to_numpy() for model in model_names])
         average_pi12 = np.mean(average_pis[:,:,2:], axis=2)
         average_pi3 = average_pis[:,:,2]
-        
+
         # Find best models
         best_model_pi12 = model_names[np.argmin(average_pi12, axis=0)]
         best_model_pi3 = model_names[np.argmin(average_pi3, axis=0)]
-
         self.best_models = np.concatenate([[best_model_pi12, best_model_pi3]])
+
+    def find_best_models_v2(self, num_models):
+        # Create numpy array with model names to be able to list-index them
+        model_names = np.array([config['name'] for config in self.model_configs])
+
+        # Calculate the sharpe ratio of the performance indicators. This way, we penalize models that have erratic
+        # behavior from one week to the other (high standard deviation). It is a more robust way to measure performance
+        sr_pis = np.stack([np.divide(self.model_performances[model].groupby('DMA').mean().to_numpy(), self.model_performances[model].groupby('DMA').std().to_numpy()) for model in model_names])
+        # First calculate ranks since there are differences in the magnitudes of different PIs (otherwise we put more importance to PI2)
+        average_scores = np.mean(stats.rankdata(sr_pis, axis=0), axis=2)
+
+        # Keep top n models
+        self.best_n_models = model_names[np.argsort(average_scores, axis=0)][0:num_models]
+        # Also keep their scores (we take the reciprocal since we want higher score for better models)
+        self.best_n_models_scores = np.reciprocal(np.nan_to_num(np.sort(average_scores, axis=0)[0:num_models], nan=num_models))
+
 
     def generate_forecasts(self):
         # Generate forecasts for all models that are choosen among the best models
         for model_name in np.unique(self.best_models):
             model_config = [config for config in self.model_configs if config['name'] == model_name][0]
             self.forecasts[model_name] = get_forecast(model_config, self.demand, self.weather_train, self.weather_test)
+
+    def generate_forecasts_v2(self):
+        # Generate forecasts for all models that are choosen among the best models
+        for model_name in list(set(chain(*self.best_n_models))):
+            model_config = [config for config in self.model_configs if config['name'] == model_name][0]
+            self.forecasts[model_name] = get_forecast(model_config, self.demand, self.weather_train, self.weather_test)
+
 
     def combine_forecasts(self):
         # Combine the forecasts according to the ensembling strategy
@@ -119,6 +147,16 @@ class WaterFuturesEnsembler:
             self.ensemble_forecast[dma].iloc[:168] = self.forecasts[self.best_models[0,dma_idx]][dma].iloc[:168]
             self.ensemble_forecast[dma].iloc[168:] = self.forecasts[self.best_models[1,dma_idx]][dma].iloc[168:]
 
+    def combine_forecasts_v2(self):
+        # Combine the forecasts according to the ensembling strategy
+        # TODO: Try out different ensembling strategies
+        self.ensemble_forecast = pd.DataFrame(index=self.weather.iloc[-168:].index, columns=self.demand.columns)
+        for dma_idx, dma in enumerate(self.ensemble_forecast.columns):
+            self.ensemble_forecast[dma] = 0
+            for i in range(0, len(self.best_n_models)):
+                self.ensemble_forecast[dma] += self.best_n_models_scores[i][dma_idx] * self.forecasts[self.best_n_models[i][dma_idx]][dma]
+            self.ensemble_forecast[dma] /= np.sum([ranks[dma_idx] for ranks in self.best_n_models_scores])
+
 
 # TODO: REMOVE
 def get_forecast(config, demand_train, weather_train, weather):
@@ -126,7 +164,7 @@ def get_forecast(config, demand_train, weather_train, weather):
     results_folder = os.path.join(pathlib.Path(__file__).parent.parent.resolve(), 'wfe_results')
     cur_file = f'{config["name"]}.pkl'
     cur_file_path = os.path.join(results_folder, cur_file)
-        
+
     with open(cur_file_path, 'rb') as f:
         cur_res = pd.compat.pickle_compat.load(f)
 
@@ -179,7 +217,7 @@ def get_forecast(config, demand_train, weather_train, weather):
 
     return demand_forecast
 '''
-    
+
 def load_data():
     data_folder = os.getenv('BON2024_DATA_FOLDER')
     if data_folder is None:
@@ -219,7 +257,7 @@ def load_data():
 
     return demand, weather
 
-    
+
 ### Data loading helpers
 def adjust_summer_time(df):
     days_missing_hour = ['2021-03-28', '2022-03-27', '2023-03-26']

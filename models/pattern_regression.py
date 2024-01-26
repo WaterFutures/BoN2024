@@ -43,21 +43,6 @@ class PatternRegression(Model):
         pred = (self.cur_pattern * pred_std) + pred_mean
         return pred
         
-from preprocessing.simple_transforms import Logarithm
-from preprocessing.weather_feature_engineering import RealFeel, DewPoint, WindChill
-
-pattern_regression = {
-    'name': f'PatternRegression',
-    'model': PatternRegression(),
-    'preprocessing': {
-        'demand': [Logarithm()],
-        'weather': [RealFeel(), DewPoint(), WindChill()]
-    }
-}
-
-from models.base import Model
-import numpy as np
-from sklearn.linear_model import LinearRegression
 
 class PatternRegressionDaily(Model):
 
@@ -134,14 +119,3 @@ class PatternRegressionDaily(Model):
                 pred.append((self.cur_pattern_weekend * pred_std) + pred_mean)
         return np.concatenate(pred)
         
-from preprocessing.simple_transforms import Logarithm
-from preprocessing.weather_feature_engineering import RealFeel, DewPoint, WindChill
-
-pattern_regression_daily = {
-    'name': f'PatternRegressionDaily',
-    'model': PatternRegressionDaily(),
-    'preprocessing': {
-        'demand': [Logarithm()],
-        'weather': [RealFeel(), DewPoint(), WindChill()]
-    }
-}

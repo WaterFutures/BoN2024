@@ -45,26 +45,4 @@ class WaveNet_prepare_test_dfs:
         demands_test = pd.concat([demand_train, demand_nans], axis=0)
         weather_test = pd.concat([weather_train, weather_test], axis=0)
         return demands_test, weather_test
-    
-wavenet_lin = {
-    'name': 'WaveNet-lin',
-    'model': WaveNetModel(cfg),
-    'preprocessing': {
-        'demand': [],
-        'weather': [],
-        'prepare_test_dfs': [WaveNet_prepare_test_dfs()]
-    }
-}
-
-cfg_log = cfg.copy()
-cfg_log['apply_log_scaling'] = True
-
-wavenet_log = {
-    'name': 'WaveNet-log',
-    'model': WaveNetModel(cfg_log),
-    'preprocessing': {
-        'demand': [Logarithm()],
-        'weather': [],
-        'prepare_test_dfs': [WaveNet_prepare_test_dfs()]
-    }
-}
+ 

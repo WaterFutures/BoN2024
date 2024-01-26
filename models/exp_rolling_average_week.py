@@ -22,13 +22,3 @@ class ExpWeightedRollingWeek(Model):
     def forecast(self, demand_test, weather_test):
         return np.nan_to_num(self.avg_week, nan=0)
 
-
-def exp_rolling_average_week(x):
-    return {
-        'name': f'ExpRollingAvgWeek{x}',
-        'model': ExpWeightedRollingWeek(x),
-        'preprocessing': {
-            'demand': [],
-            'weather': []
-        }
-    }

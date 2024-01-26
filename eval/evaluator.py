@@ -31,22 +31,9 @@ class WaterFuturesEvaluator:
         self.results_folder = os.path.join(pathlib.Path(__file__).parent.parent.resolve(), 'data', 'results')
         if not os.path.exists(self.results_folder):
             os.makedirs(self.results_folder)
-        """
-        # Load data, omitting the last 4 weeks
-        demand, weather = load_data()
-        self.demand = demand.iloc[:-WEEK_LEN*4]
-        self.weather = weather.iloc[:-WEEK_LEN*4]
-
-        self.week_start = 12 #12
-        self.total_weeks = self.demand.shape[0] // (WEEK_LEN)
-
+       
         self.results = {}
-
-        self.results_folder = os.path.join(pathlib.Path(__file__).parent.parent.resolve(), 'wfe_results')
-        if not os.path.exists(self.results_folder):
-            os.makedirs(self.results_folder)
         self.load_saved_results()
-        """
 
     def next_iter(self):
         self.curr_it = min(self.curr_it+1, self.n_iter) 
@@ -61,33 +48,89 @@ class WaterFuturesEvaluator:
 
 
     def load_saved_results(self):
-        files = os.listdir(self.results_folder)
-        for cur_file in files:
-            cur_file_path = os.path.join(self.results_folder, cur_file)
-            cur_model_name = '.'.join(cur_file.split('.')[:-1])
-            with open(cur_file_path, 'rb') as f:
-                self.results[cur_model_name] = pd.compat.pickle_compat.load(f)
+        models = os.listdir(os.path.join(self.results_folder,'models'))
+        for mode_dir in models:
+        
+            iters = os.listdir(os.path.join(self.results_folder,'models',mode_dir))
+            for iter_dir in iters:
+
+                phases = os.listdir(os.path.join(self.results_folder,'models',mode_dir,iter_dir))
+                for phase_dir in phases:
+
+                    files = os.listdir(os.path.join(self.results_folder,'models',mode_dir,iter_dir,phase_dir))
+                    for cur_file in files:
+
+                        cur_file_path = os.path.join(self.results_folder,'models',mode_dir,iter_dir,phase_dir,cur_file)
+                        cur_file_name = cur_file.split('.')[0]
+
+                        cur_model_name = cur_file_name.split('__')[0]
+                        iter = cur_file_name.split('__')[1]
+                        phase = cur_file_name.split('__')[2]
+                        seed = cur_file_name.split('__')[3]
+
+                        if cur_model_name not in self.results.keys():
+                            self.results[cur_model_name] = {}
+
+                        if iter not in self.results[cur_model_name].keys():
+                            self.results[cur_model_name][iter] = {}
+
+                        if phase not in self.results[cur_model_name][iter].keys():
+                            self.results[cur_model_name][iter][phase] = {}
+
+                        with open(cur_file_path, 'rb') as f:
+                            self.results[cur_model_name][iter][phase][seed] = pd.compat.pickle_compat.load(f)
+                            
+                            
+                            
 
     def add_model(self, config, force=False):
+        # Check the folder exists
+        iter = 'iter_'+str(self.curr_it)
+        res_dir = os.path.join(self.results_folder, 
+                               'models',
+                               config['name'], 
+                               iter,
+                               self.curr_phase)
+        if not os.path.exists(res_dir):
+            os.makedirs(res_dir)
+
         # Check force condition and skip computation if desired
-        if (not force) and (config['name'] in self.results.keys()):
+        if (not force) and (config['name'] in self.results.keys()) and (iter in self.results[config['name']].keys()) and (self.curr_phase in self.results[config['name']][iter].keys()):
             return
 
+        seed_range = [0]
+        if self.curr_phase == 'train':
+            if not config['deterministic']:  
+                seed_range = range(self.n_train_seeds)
+            week_range = self.train_weeks
+        elif self.curr_phase == 'test':
+            if not config['deterministic']:
+                seed_range = range(self.n_test_seeds)
+            week_range = self.test_weeks
+
         # Evaluate model
-        performance_indicators, forecast = self.eval_model(config)
-        self.results[config['name']] = {
-            'performance_indicators': performance_indicators,
-            'forecast': forecast
-        }
+        for seed in seed_range:
+            l__seed = 'seed_'+str(seed)
+            print(f'Evaluating {config["name"]} with seed {seed} in {self.curr_phase} phase')
+            performance_indicators, forecast = self.eval_model(config, week_range, seed)
+            self.results[config['name']] = { 
+                iter: {
+                self.curr_phase: {
+                l__seed: {
+                    'performance_indicators': performance_indicators,
+                    'forecast': forecast
+                }
+                }
+                }
+            }
+            # Save results to disk
+            cur_file_path = os.path.join(res_dir,
+                                        f'{config["name"]}__{iter}__{self.curr_phase}__{l__seed}__.pkl')
+            with open(cur_file_path, 'wb') as f:
+                pickle.dump(self.results[config["name"]][iter][self.curr_phase][l__seed], f)
 
-        # Save results to disk
-        cur_file_path = os.path.join(self.results_folder, f'{config["name"]}.pkl')
-        with open(cur_file_path, 'wb') as f:
-            pickle.dump(self.results[config["name"]], f)
 
-
-    def eval_model(self, config):
-        test_week_idcs = range(self.week_start, self.total_weeks)
+    def eval_model(self, config, test_week_idcs, seed=0):
 
         results = pd.DataFrame(
             index=pd.MultiIndex.from_tuples([(week,dma) for week in test_week_idcs for dma in DMAS_NAMES], names=['Test week', 'DMA']),
@@ -117,6 +160,9 @@ class WaterFuturesEvaluator:
             # Apply preprocessing for weather
             for preprocessing_step in config['preprocessing']['weather']:
                 weather_train = preprocessing_step.fit_transform(weather_train)
+
+            # Set the seed for the model
+            config['model'].set_seed(seed)
 
             # Train model
             config['model'].fit(demand_train, weather_train)

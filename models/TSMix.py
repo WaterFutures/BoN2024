@@ -2,12 +2,9 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 from models.base import Model
-from preprocessing.simple_transforms import Logarithm
-from preprocessing.advanced_transforms import  LGBM_impute_nan_demand
 from sklearn.preprocessing import StandardScaler
 import os
 
-RANDOM_SEED = 46
 
 class TSDataLoader:
     
@@ -199,7 +196,7 @@ class TSMix(Model):
 
     def fit(self, demands, weather):
 
-        tf.keras.utils.set_random_seed(RANDOM_SEED)
+        tf.keras.utils.set_random_seed(self.seed)
 
         self.data_loader = TSDataLoader(
             demands,
@@ -235,13 +232,3 @@ class TSMix(Model):
         forecasts = self.model.predict(self.test_data, verbose=0)
         tms_forecasts = pd.DataFrame(self.data_loader.inverse_transform(forecasts[-1,:,:].reshape(forecasts.shape[1], forecasts.shape[2])))
         return tms_forecasts.values
-
-
-tsmix = {
-    'name': 'TSMix',
-    'model': TSMix(train_epochs=50, dropout=0.8),
-    'preprocessing': {
-        'demand': [Logarithm(), LGBM_impute_nan_demand()],
-        'weather': []
-    }
-}

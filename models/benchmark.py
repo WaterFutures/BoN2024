@@ -127,16 +127,15 @@ def auto_rolling_average_week(demands, max_n_weeks=10, tolerance=0.01, sample_si
 
 class AutoRollingAverageWeek(Model):
     
-        def __init__(self, max_n_weeks=10, tolerance=0.01, sample_size=30, random_state=42):
+        def __init__(self, max_n_weeks=10, tolerance=0.01, sample_size=30):
             self.max_n_weeks = max_n_weeks
             self.tolerance = tolerance
             self.sample_size = sample_size
-            self.random_state = random_state
             self.best_wss = {}
             self.RollAW = None
     
         def fit(self, demands, weather):
-            self.best_wss = auto_rolling_average_week(demands, self.max_n_weeks, self.tolerance, self.sample_size, self.random_state)
+            self.best_wss = auto_rolling_average_week(demands, self.max_n_weeks, self.tolerance, self.sample_size, self.seed)
             self.RollAW = RollingAverageWeek(self.best_wss).fit(demands, weather)
             return self
     

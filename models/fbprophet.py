@@ -27,12 +27,3 @@ class Fbprophet(Model):
     def forecast(self, demand_test, weather_test):
         pred= np.array([self.fb_prophet[dma].predict(n=WEEK_LEN).values().T.tolist()[0] for dma in self.dmas ])
         return pred.T
-
-prophet = {
-    'name': 'FbProphet',
-    'model': Fbprophet(),
-    'preprocessing': {
-        'demand': [],
-        'weather': []
-    }
-}

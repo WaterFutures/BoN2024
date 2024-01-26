@@ -5,29 +5,33 @@ import pandas as pd
 class RealFeel(Preprocessing):
 
     def transform(self, X):
-        X['real_feel'] = X[['Temperature','Humidity','Windspeed']].apply(lambda x:feels_like(temperature=Temp(x[0], 'c'), humidity=x[1], wind_speed=x[2]).c, axis=1)
-        return X
+        val = X.apply(lambda x:feels_like(temperature=Temp(x.at['Temperature'], 'c'), humidity=x.at['Humidity'], wind_speed=x.at['Windspeed']).c, axis=1, result_type='reduce')
+        val.name = 'real_feel'
+        return pd.concat([X, val], axis=1)
     
     
 class WindChill(Preprocessing):
 
     def transform(self, X):
-        X['wind_chill'] = X[['Temperature','Humidity','Windspeed']].apply(lambda x:wind_chill(temperature=Temp(x[0], 'c'), wind_speed=x[2]).c, axis=1)
-        return X
+        val = X.apply(lambda x:wind_chill(temperature=Temp(x.at['Temperature'], 'c'), wind_speed=x.at['Windspeed']).c, axis=1, result_type='reduce')
+        val.name = 'wind_chill'
+        return pd.concat([X, val], axis=1)
     
     
 class HeatIndex(Preprocessing):
 
     def transform(self, X):
-        X['heat_index'] = X[['Temperature','Humidity','Windspeed']].apply(lambda x:heat_index(temperature=Temp(x[0], 'c'), humidity=x[1]).c, axis=1)
-        return X
+        val = X.apply(lambda x:heat_index(temperature=Temp(x.at['Temperature'], 'c'), humidity=x.at['Humidity']).c, axis=1, result_type='reduce')
+        val.name = 'heat_index'
+        return pd.concat([X, val], axis=1)
     
     
 class DewPoint(Preprocessing):
 
     def transform(self, X):
-        X['dew_point'] = X[['Temperature','Humidity','Windspeed']].apply(lambda x:dew_point(temperature=Temp(x[0], 'c'), humidity=x[1]).c, axis=1)
-        return X    
+        val = X.apply(lambda x:dew_point(temperature=Temp(x.at['Temperature'], 'c'), humidity=x.at['Humidity']).c, axis=1, result_type='reduce')
+        val.name = 'dew_point'
+        return pd.concat([X, val], axis=1)
 
 class DaysSinceRain(Preprocessing):
 

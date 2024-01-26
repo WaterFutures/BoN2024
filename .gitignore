@@ -1,7 +1,5 @@
-results/
-wfe_results/
 .ipynb_checkpoints/
-
+.DS_Store 
 __pycache__/
 
 # Exclude ray artifacts

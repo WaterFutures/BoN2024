@@ -1,18 +1,37 @@
 import numpy as np
 import pandas as pd
 import scipy as sp
-import scipy.stats
 import os
 import pathlib
 import pickle
 import tqdm
 
-DMAS_NAMES = ['DMA_A', 'DMA_B', 'DMA_C', 'DMA_D', 'DMA_E', 'DMA_F', 'DMA_G', 'DMA_H', 'DMA_I', 'DMA_J']
-WEEK_LEN = 24 * 7
+from eval.data_loading_helpers import load_data, DMAS_NAMES, WEEK_LEN
 
 class WaterFuturesEvaluator:
 
     def __init__(self):
+        self.n_iter=4   # Number of iterations of the whole competition
+        self.curr_it=0  # Current iteration
+        self.demand=None    # Current iteration demand dataframe
+        self.weather=None   # Current iteration weather dataframe
+        self.n_weeks=0      # Number of weeks in the current iteration demand dataframe
+        self.eval_week=self.n_weeks+1 # Current evaluation week (present only in the weather dataframe)
+        
+        self.n_train_weeks=52 # Parameter to decide how many weeks to use for training (52 so that we don't bias ourselves on any particolar week)
+        self.n_test_weeks=4   # Parameter to decide how many weeks to use for testing (4 is basically the month of the evaluation week)
+        self.n_train_seeds=5  # Number of seeds to use for models during training
+        self.n_test_seeds=10    # Number of seeds to use for models during testing
+        self.week_start=0      # week to start the training = n_weeks-n_train_weeks-n_test_weeks
+        self.train_weeks=None  # range of weeks to use for training (range(week_start, week_start+n_train_weeks))
+        self.test_weeks=None   # range of weeks to use for testing (range(n_weeks-n_test_weeks, n_weeks))
+        
+        self.curr_phase = None  # Phase of the competition (train or test)
+
+        self.results_folder = os.path.join(pathlib.Path(__file__).parent.parent.resolve(), 'data', 'results')
+        if not os.path.exists(self.results_folder):
+            os.makedirs(self.results_folder)
+        """
         # Load data, omitting the last 4 weeks
         demand, weather = load_data()
         self.demand = demand.iloc[:-WEEK_LEN*4]
@@ -27,6 +46,19 @@ class WaterFuturesEvaluator:
         if not os.path.exists(self.results_folder):
             os.makedirs(self.results_folder)
         self.load_saved_results()
+        """
+
+    def next_iter(self):
+        self.curr_it = min(self.curr_it+1, self.n_iter) 
+
+        self.demand, self.weather = load_data(self.curr_it)
+        self.n_weeks = self.demand.shape[0] // (WEEK_LEN)
+        self.eval_week = self.n_weeks+1
+
+        self.week_start = self.n_weeks-self.n_train_weeks-self.n_test_weeks
+        self.train_weeks = range(self.week_start, self.week_start+self.n_train_weeks)
+        self.test_weeks = range(self.n_weeks-self.n_test_weeks, self.n_weeks)
+
 
     def load_saved_results(self):
         files = os.listdir(self.results_folder)
@@ -140,59 +172,7 @@ class WaterFuturesEvaluator:
                             columns=['PI1', 'PI2', 'PI3', *[f'Rank_{x}' for x in ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']], 'Average'])
 
 
-### Data loading helpers
-def adjust_summer_time(df):
-    days_missing_hour = ['2021-03-28', '2022-03-27', '2023-03-26']
 
-    # Copy 1AM and 3AM data to 2AM for days missing 2AM
-    for day in days_missing_hour:
-        df = pd.concat([df, df.loc[f'{day} 01:00:00':f'{day} 03:00:00']
-                      .reset_index()
-                      .assign(Date=pd.to_datetime(f'{day} 02:00:00'))
-                      .set_index('Date')]) \
-                        .sort_index()
-
-    # Average 2AM values for days with duplicates
-    return df.groupby('Date').mean().sort_index()
-
-def load_data():
-    data_folder = os.getenv('BON2024_DATA_FOLDER')
-    if data_folder is None:
-        data_folder = 'data'
-
-    # Load the excel file
-    rawdata = pd.read_excel(os.path.join(data_folder, 'original', 'InflowData_1.xlsx') )
-
-    # Make the first column to datetime format
-    rawdata.iloc[:,0] = pd.to_datetime(rawdata.iloc[:,0], format='%d/%m/%Y %H:%M')
-    rawdata = rawdata.rename(columns={rawdata.columns[0]: 'Date'})
-
-    demand = rawdata
-    demand.set_index('Date', inplace=True) # Make the Date column the index of the dataframe
-
-    # Rename the columns from DMA_A to DMA_J
-    demand.columns = DMAS_NAMES
-
-    # Load weather data
-    rawdata = pd.read_excel(os.path.join(data_folder, 'original', 'WeatherData_1.xlsx') )
-
-    #Same stuff for weather data
-    rawdata.iloc[:,0] = pd.to_datetime(rawdata.iloc[:,0], format='%d/%m/%Y %H:%M')
-    rawdata = rawdata.rename(columns={rawdata.columns[0]: 'Date'})
-    weather = rawdata
-
-    weather.set_index('Date', inplace=True)
-    weather.columns = ['Rain', 'Temperature', 'Humidity', 'Windspeed']
-
-    # Adjust for Summer/Winter time
-    demand = adjust_summer_time(demand)
-    weather = adjust_summer_time(weather)
-
-    # Make Data start at first monday
-    demand = demand.loc['2021-01-04':]
-    weather = weather.loc['2021-01-04':]
-
-    return demand, weather
 
 ### Performance Indicators
 def performance_indicators(y_pred, y_true):

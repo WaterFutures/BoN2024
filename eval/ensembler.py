@@ -8,8 +8,7 @@ import pickle
 from itertools import chain
 from scipy import stats
 
-DMAS_NAMES = ['DMA_A', 'DMA_B', 'DMA_C', 'DMA_D', 'DMA_E', 'DMA_F', 'DMA_G', 'DMA_H', 'DMA_I', 'DMA_J']
-WEEK_LEN = 24 * 7
+
 
 class WaterFuturesEnsembler:
 

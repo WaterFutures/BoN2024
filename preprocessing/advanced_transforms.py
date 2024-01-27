@@ -10,6 +10,7 @@ import holidays
 from Utils.weather_features import feels_like, wind_chill, heat_index, dew_point, Temp
 from statsforecast import StatsForecast
 from statsforecast.models import OptimizedTheta
+from statsmodels.tsa.holtwinters import ExponentialSmoothing
 
 DMAS_NAMES = ['DMA_A', 'DMA_B', 'DMA_C', 'DMA_D', 'DMA_E', 'DMA_F', 'DMA_G', 'DMA_H', 'DMA_I', 'DMA_J']
 WEEK_LEN = 24 * 7

@@ -26,7 +26,9 @@ class WaterFuturesEvaluator:
         self.train_weeks=None  # range of weeks to use for training (range(week_start, week_start+n_train_weeks))
         self.test_weeks=None   # range of weeks to use for testing (range(n_weeks-n_test_weeks, n_weeks))
         
-        self.curr_phase = None  # Phase of the competition (train or test)
+        self.curr_phase = None  # Phase of the competition (train, test or eval)
+
+        self.configs = {} # Dictionary of configs for each model
 
         self.results_folder = os.path.join(pathlib.Path(__file__).parent.parent.resolve(), 'data', 'results')
         if not os.path.exists(self.results_folder):
@@ -34,6 +36,13 @@ class WaterFuturesEvaluator:
        
         self.results = {}
         self.load_saved_results()
+
+        self.strategies = {}
+        self.load_saved_strategies()
+        self.resstrategies = {}
+
+        self.selected_models = []
+        self.selected_strategy = None
 
     def next_iter(self):
         self.curr_it = min(self.curr_it+1, self.n_iter) 
@@ -48,6 +57,8 @@ class WaterFuturesEvaluator:
 
 
     def load_saved_results(self):
+        if not os.path.exists(os.path.join(self.results_folder,'models')):
+            return
         models = os.listdir(os.path.join(self.results_folder,'models'))
         for mode_dir in models:
         
@@ -80,10 +91,14 @@ class WaterFuturesEvaluator:
                         with open(cur_file_path, 'rb') as f:
                             self.results[cur_model_name][iter][phase][seed] = pd.compat.pickle_compat.load(f)
                             
-                            
+    def load_saved_strategies(self):
+        pass            
                             
 
     def add_model(self, config, force=False):
+        # if config is not in configs yet add it, or overwrite
+        self.configs[config['name']] = config
+
         # Check the folder exists
         iter = 'iter_'+str(self.curr_it)
         res_dir = os.path.join(self.results_folder, 
@@ -107,22 +122,27 @@ class WaterFuturesEvaluator:
             if not config['deterministic']:
                 seed_range = range(self.n_test_seeds)
             week_range = self.test_weeks
+        else:
+            raise ValueError(r'You can\'t add new models in this phase')
 
         # Evaluate model
         for seed in seed_range:
             l__seed = 'seed_'+str(seed)
             print(f'Evaluating {config["name"]} with seed {seed} in {self.curr_phase} phase')
             performance_indicators, forecast = self.eval_model(config, week_range, seed)
-            self.results[config['name']] = { 
-                iter: {
-                self.curr_phase: {
-                l__seed: {
+            if config['name'] not in self.results.keys():
+                self.results[config['name']] = {}
+
+            if iter not in self.results[config['name']].keys():
+                self.results[config['name']][iter] = {}
+            
+            if self.curr_phase not in self.results[config['name']][iter].keys():
+                self.results[config['name']][iter][self.curr_phase] = {}
+
+            self.results[config['name']][iter][self.curr_phase][l__seed] = {
                     'performance_indicators': performance_indicators,
                     'forecast': forecast
                 }
-                }
-                }
-            }
             # Save results to disk
             cur_file_path = os.path.join(res_dir,
                                         f'{config["name"]}__{iter}__{self.curr_phase}__{l__seed}__.pkl')
@@ -199,6 +219,10 @@ class WaterFuturesEvaluator:
 
         return results, forecast
     
+    def selected_models(self, modelsnames: list) -> list:
+        self.selected_models = modelsnames
+        return self.selected_models
+    
     def ranks_report(self, model_names):
         # The .loc[:13] makes this compatible with the ensembled files
         df_shape = self.results[model_names[0]]['performance_indicators'].loc[13:]
@@ -217,8 +241,157 @@ class WaterFuturesEvaluator:
                             index=model_names, 
                             columns=['PI1', 'PI2', 'PI3', *[f'Rank_{x}' for x in ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']], 'Average'])
 
+def add_strategy(self, name, strategy, force=False):
+    # only available in training phase of the first iteration
+    assert self.curr_phase == 'train', 'Strategies can only be added during training phase'
+    assert self.curr_it == 1, 'Strategies can only be added during the first iteration'
+
+    # if strategy is not in strategies yet add it, or overwrite
+    self.strategies[name] = strategy
+
+    # Check the folder exists
+    iter = 'iter_'+str(self.curr_it)
+    res_dir = os.path.join(self.results_folder, 
+                            'strategies',
+                            name, 
+                            iter) 
+    # unlike models there is no phase or seed for strategies
+    if not os.path.exists(res_dir):
+        os.makedirs(res_dir)
+
+    # Check force condition and skip computation if desired
+    if (not force) and (name in self.resstrategies.keys()) and (iter in self.resstrategies[name].keys()):
+        return
+    
+    # Evaluate strategy
+    print(f'Evaluating strategy: {name}')
+    performance_indicators, forecast = self.eval_strategy(strategy)
+    if name not in self.resstrategies.keys():
+        self.resstrategies[name] = {}
+
+    self.resstrategies[name][iter] = {
+            'performance_indicators': performance_indicators,
+            'forecast': forecast
+        }
+    # Save results to disk
+    cur_file_path = os.path.join(res_dir,
+                                f'{name}__{iter}__{self.curr_phase__.pkl')
+    with open(cur_file_path, 'wb') as f:
+        pickle.dump(self.resstrategies[name][iter], f)
+
+def eval_strategy(self, strategy):
+    test_week_idcs = range(self.week_start+self.n_test_weeks, self.week_start+self.n_train_weeks) 
+    results = pd.DataFrame(
+        index=pd.MultiIndex.from_tuples([(week,dma) for week in test_week_idcs for dma in DMAS_NAMES], names=['Test week', 'DMA']),
+        columns=['PI1', 'PI2', 'PI3'],
+        dtype=float
+    )
+
+    forecast = self.demand.copy()
+    forecast.iloc[:] = pd.NA
+
+    for test_week_idx in tqdm.tqdm(test_week_idcs):
+        # Load the truth for this week
+        ground_truth = self.demand.iloc[WEEK_LEN*test_week_idx: WEEK_LEN*(test_week_idx+1)]
+        
+        # Load how the selected models perfromed for the test_weeks before this week
+        testresults = extract_results(self.results[self.selected_models], 
+                                      self.curr_it,
+                                      self.curr_phase,
+                                      range(test_week_idx-self.n_test_weeks, test_week_idx)
+                                    )
+
+        # Select the best model(s) for each DMA
+        best_models = strategy.find_best_models(testresults)
+
+        # Take the forecast of the best model(s) for each DMA
+        forecasts = extract_forecasts(self.results[self.selected_models],
+                                        self.curr_it,
+                                        self.curr_phase,
+                                        range(test_week_idx-self.n_test_weeks, test_week_idx)
+                                    )   
+
+        # Combine the forecasts
+        demand_forecast = strategy.combine_forecasts(forecasts)
+
+        # Save forecast and calculate Performance indicators
+        forecast.iloc[WEEK_LEN*test_week_idx: WEEK_LEN*(test_week_idx+1)] = demand_forecast
+        results.loc[test_week_idx] = performance_indicators(demand_forecast, ground_truth)
+
+    return results, forecast
+
+def forecast_next(self):
+    assert self.selected_strategy is not None, 'No strategy selected'
+    assert len(self.selected_models)>0, 'No models selected'
+
+    self.curr_phase = 'test'
+
+    for model_name in self.selected_models:
+        self.add_model(self.configs[model_name]) # add model will send the correct database to the eval model function
+
+    # etract the results of the selected models accordingly
+    testresults = extract_results(self.results[self.selected_models], 
+                                    self.curr_it,
+                                    self.curr_phase,
+                                    self.test_weeks
+                                )
+
+    self.curr_phase = 'eval'
+
+    best_models = self.selected_strategy.find_best_models(testresults)
+
+    # create the forecasts with the selected models
+    forecasts = {}
+
+    demand_forecast = self.selected_strategy.combine_forecasts(forecasts)
+
+    # Save forecast and no PI this time!! We don't have ground truth as is the evaluation week
+    # save the forecast of the models 
+    # Check the folder exists
+    iter = 'iter_'+str(self.curr_it)
+    for model_name in self.selected_models:
+        res_dir = os.path.join(self.results_folder, 
+                                'models',
+                                model_name, 
+                                iter,
+                                self.curr_phase)
+        if not os.path.exists(res_dir):
+            os.makedirs(res_dir)    
+
+        for seed in self.forecasts[model_name].keys():
+            cur_file_path = os.path.join(res_dir,
+                                        f'{model_name}__{iter}__{self.curr_phase}__{seed}__.pkl')
+            with open(cur_file_path, 'wb') as f:
+                pickle.dump(forecasts[model_name][seed], f)
+
+    # save the forecast of the strategy 
+    res_dir = os.path.join(self.results_folder, 
+                            'strategies',
+                            self.selected_strategy, 
+                            iter)
+    if not os.path.exists(res_dir):
+        os.makedirs(res_dir)
+
+    cur_file_path = os.path.join(res_dir,
+                                 f'{self.selected_strategy}__{iter}__{self.curr_phase}__.pkl')
+    with open(cur_file_path, 'wb') as f:
+        pickle.dump(demand_forecast, f)
+
+    # save also the dataframe as an excel file
+    demand_forecast.to_excel(os.path.join(res_dir,
+                                   f'{self.selected_strategy}__{iter}__{self.curr_phase}__.xlsx'))
 
 
+def extract_results(results, iter_n, phase, weeks):
+    # Extract the results 
+    iter = 'iter_'+str(iter_n)
+    testres = {}
+    for model_name in results.keys():
+        testres[model_name] = {}
+        for seed in results[model_name][iter][phase].keys():
+            testres[model_name][seed] = results[model_name][iter][phase][seed]['performance_indicators'].loc[weeks]
+
+    return testres
 
 ### Performance Indicators
 def performance_indicators(y_pred, y_true):

@@ -275,7 +275,7 @@ def add_strategy(self, name, strategy, force=False):
         }
     # Save results to disk
     cur_file_path = os.path.join(res_dir,
-                                f'{name}__{iter}__{self.curr_phase__.pkl')
+                                f'{name}__{iter}__{self.curr_phase}__.pkl')
     with open(cur_file_path, 'wb') as f:
         pickle.dump(self.resstrategies[name][iter], f)
 
@@ -390,6 +390,17 @@ def extract_results(results, iter_n, phase, weeks):
         testres[model_name] = {}
         for seed in results[model_name][iter][phase].keys():
             testres[model_name][seed] = results[model_name][iter][phase][seed]['performance_indicators'].loc[weeks]
+
+    return testres
+
+def extract_forecasts(results, iter_n, phase, weeks):
+    # Extract the forecasts
+    iter = 'iter_'+str(iter_n)
+    testres = {}
+    for model_name in results.keys():
+        testres[model_name] = {}
+        for seed in results[model_name][iter][phase].keys():
+            testres[model_name][seed] = results[model_name][iter][phase][seed]['forecast'].iloc[weeks]
 
     return testres
 

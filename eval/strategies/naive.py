@@ -5,7 +5,8 @@ class Naive(Strategy):
         super().__init__()
 
     def find_best_models(self, testresults):
-        return [testresults.keys()[0]]
+        # return the firts key of the dictionary
+        return ['AutoRollingAverage']
 
     def combine_forecasts(self, forecasts):
-        return forecasts[0]
+        return forecasts['AutoRollingAverage'].groupby('Date').mean().to_numpy('float64')

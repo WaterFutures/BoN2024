@@ -338,10 +338,15 @@ class WaterFuturesEvaluator:
 
         best_models = self.selected_strategy.find_best_models(testresults)
 
-        # create the forecasts with the selected models
-        forecasts = {}
+        # create dataframes of the forecasts with the selected models
+        forecasts = self.get_forecasts()
 
         demand_forecast = self.selected_strategy.combine_forecasts(forecasts)
+
+        # demand forecast to dataframe
+        demand_forecast = pd.DataFrame(demand_forecast, 
+                                       index=self.weather.index[-WEEK_LEN:], 
+                                        columns=self.demand.columns)
 
         # Save forecast and no PI this time!! We don't have ground truth as is the evaluation week
         # save the forecast of the models 
@@ -378,6 +383,71 @@ class WaterFuturesEvaluator:
         # save also the dataframe as an excel file
         demand_forecast.to_excel(os.path.join(res_dir,
                                     f'{self.selected_strategy}__{iter}__{self.curr_phase}__.xlsx'))
+
+
+    def get_forecasts(self) -> dict(str, pd.DataFrame):
+        forecasts = {}
+        for model_name in self.selected_models:
+            forecasts[model_name] = {}
+            df_list = []
+            for seed in self.n_test_seeds:
+                df_list.append(self.get_forecast(self.configs[model_name], seed))
+
+            forecasts[model_name] = pd.concat(df_list,
+                                        keys=range(len(df_list)),
+                                        names=['Seed', 'Date'])
+
+        return forecasts
+    
+    def get_forecast(self, config, seed) -> pd.DataFrame:
+        l__seed = 'seed_'+str(seed)
+
+        demand_train = self.demand.iloc[:WEEK_LEN*self.eval_week]
+        weather_train = self.weather.iloc[:WEEK_LEN*self.eval_week]
+        weather = self.weather.iloc[WEEK_LEN*self.eval_week: WEEK_LEN*(self.eval_week+1)]
+        
+        # If applicable, prepare test dataframes
+        if 'prepare_test_dfs' in config['preprocessing']:
+            for preprocessing_step in config['preprocessing']['prepare_test_dfs']:
+                demand_test, weather = preprocessing_step.transform(demand_train, weather_train, weather)
+
+        # Apply preprocessing for demands
+        for preprocessing_step in config['preprocessing']['demand']:
+            demand_train = preprocessing_step.fit_transform(demand_train)
+
+        # Apply preprocessing for weather
+        for preprocessing_step in config['preprocessing']['weather']:
+            weather_train = preprocessing_step.fit_transform(weather_train)
+
+        # Train model
+        config['model'].fit(demand_train, weather_train)
+
+        # If applicable, prepare test dataframes
+        if 'prepare_test_dfs' in config['preprocessing']:
+            for preprocessing_step in config['preprocessing']['demand']:
+                demand_test = preprocessing_step.transform(demand_test)
+
+            for preprocessing_step in config['preprocessing']['weather']:
+                weather = preprocessing_step.transform(weather)
+
+            # demand_test = demand_test.iloc[-WEEK_LEN:,:]
+            # weather_test = weather_test.iloc[-WEEK_LEN:,:]
+        else:
+            # Prepare test weather anyways
+            for preprocessing_step in config['preprocessing']['weather']:
+                weather = preprocessing_step.transform(weather)
+
+            demand_test = None
+
+        # Forecast next week
+        demand_forecast = config['model'].forecast(demand_test, weather)
+        demand_forecast = pd.DataFrame(demand_forecast, index=weather.index, columns=demand_train.columns)
+
+        # Transform forecast back into original unit
+        for preprocessing_step in reversed(config['preprocessing']['demand']):
+            demand_forecast = preprocessing_step.inverse_transform(demand_forecast)
+
+        return demand_forecast
 
 
 def extract_results(results, iter_n, phase, weeks):

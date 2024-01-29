@@ -311,7 +311,7 @@ top5 = [lgbm_robust, lgbm_simple, xgbm_simple, lgbm_simple_with_last_week, waven
 
 strategies['avg_top5'] = WeightedAverage([config['name'] for config in top5], np.ones(len(top5))/len(top5))
 
-top3 = [lgbm_robust, xgbm_simple, wavenet]
+top3 = [lgbm_robust, lgbm_simple, wavenet]
 strategies['avg_top3'] = WeightedAverage([config['name'] for config in top3], np.ones(len(top3))/len(top3))
 
 strategies['lgbm_wavenet'] = WeightedAverage([lgbm_robust['name'], wavenet['name']], np.array([0.5, 0.5]))

@@ -4,6 +4,8 @@ import plotly.graph_objects as go
 import plotly.subplots as suboplots
 import pandas as pd
 import numpy as np
+import warnings
+warnings.filterwarnings('ignore')
 
 # Constants
 DMAS_NAMES = ['DMA_A', 'DMA_B', 'DMA_C', 'DMA_D', 'DMA_E', 'DMA_F', 'DMA_G', 'DMA_H', 'DMA_I', 'DMA_J']
@@ -41,50 +43,130 @@ def run_dashboard(wfe):
         Output('graph-content', 'figure'),
         Input('dma-dropdown', 'value'),
         Input('pi-dropdown', 'value'),
-        Input('model-checklist', 'value')
+        Input('model-checklist', 'value'),
+        Input('strategy-checklist', 'value')
     )
-    def figures(dma, pi, model_names):
-        fig = suboplots.make_subplots(rows=2, cols=1, shared_xaxes=True, 
-                                      subplot_titles=(f"Performance for {dma} and {pi} of the selected models", 
-                                                      f"{dma} inflow trajectory for the selected models"))
+    def figures(dma, pi, model_names, strat_names):
+        fig = suboplots.make_subplots(rows=4, cols=1, shared_xaxes=True, 
+                                      subplot_titles=(f"Performance for {dma} and {pi} of the selected models",
+                                                      f"{dma} error on inflow trajectory for the selected models", 
+                                                      f"{dma} inflow trajectory for the selected models",
+                                                      f"Weather"))
 
         #fig_pi = go.Figure()
         for model_idx, model_name in enumerate(model_names):
             # Read current performance indicators
-            # This is kinda ugly, sorry but it works
-            performance_indicators_np = wfe.results[model_name]['performance_indicators'][wfe.results[model_name]['performance_indicators'].index.get_level_values('DMA') == dma][pi].to_numpy()
-            performance_indicators = pd.Series(performance_indicators_np, index=wfe.results[model_name]['forecast'].iloc[-168*performance_indicators_np.shape[0]::168].index)
 
-            # Create trace for performance indicator
-            fig.add_trace(go.Scatter(x=performance_indicators.index, y=performance_indicators, name=model_name, 
-                                        mode='lines', line=dict(color=px.colors.qualitative.Plotly[model_idx]), showlegend=False),
-                                        row=1, col=1)
+            # The structure is self.results[model_name][iter][phase][seed]['performance_indicators']-> pd.Dataframe(DMA, PI)
+            # self.results[model_name][iter][phase][seed]['forecast'] -> pd.Dataframe(Date, DMA)
+
+            # Start with the train phase
+            df_list = []
+            for seed in wfe.results[model_name]['iter_1']['train'].keys():
+                df_list.append(wfe.results[model_name]['iter_1']['train'][seed]['performance_indicators'])
+                
+            # Concatenate all the seeds
+            testres = pd.concat(df_list,
+                           keys=range(len(df_list)), 
+                            names=['Seed', 'Test week', 'DMA'])
+            
+            # Select DMA and PI
+            testres = testres.loc[(slice(None), slice(None), dma), pi]
+            # Here we have a result for each week so let's track the corresponding Monday
+            testres_x = testres.index.get_level_values('Test week').unique().map(lambda x: wfe.weather.index[0]+pd.Timedelta(days=x*7))
+
+            fig.add_trace(go.Scatter(x=testres_x, y=testres.groupby('Test week').median(),
+                                     name='Median-PI', mode='lines', line=dict(color=px.colors.qualitative.Plotly[model_idx]),
+                                     legendgroup=model_name, legendgrouptitle=dict(text=model_name)
+                                     ), row=1, col=1)
+
+            # For each iteration, only test and eval may appear... 
+
+        for i, strategy in enumerate(strat_names):
+            # Read current performance indicators
+
+            # The structure is self.resstrategies[strategy][iter][phase]['performance_indicators']-> pd.Dataframe(DMA, PI)
+            # self.resstrategies[strategy][iter][phase]['forecast'] -> pd.Dataframe(Date, DMA)
+            testres = wfe.resstrategies[strategy]['iter_1']['train']['performance_indicators']
+            # Select DMA and PI
+            testres = testres.loc[(slice(None), dma), pi]
+            # Here we have a result for each week so let's track the corresponding Monday
+            testres_x = testres.index.get_level_values('Test week').unique().map(lambda x: wfe.weather.index[0]+pd.Timedelta(days=x*7))
+
+            # Add like it was a forecasts, but use dashed lines and a different family of colors
+            fig.add_trace(go.Scatter(x=testres_x, y = testres,
+                                     name=strategy+'-PI', mode='lines', 
+                                     line=dict(color=px.colors.qualitative.Pastel[i], dash='dash'),
+                                     legendgroup=strategy, legendgrouptitle=dict(text=strategy)
+                                    ), row=1, col=1)
+
 
         # y axis label
         fig.update_yaxes(title_text=PI_UNITS[pi], row=1, col=1)
     
-        ### Trajectory
+        ### Trajectory error
         # Load and create trace for ground truth data
         demand_gt = wfe.demand[dma]
-        fig.add_trace(go.Scatter(x=demand_gt.index, y=demand_gt, name='Ground Truth',
-                                        mode='lines', line=dict(color="#000000")),
-                                        row=2, col=1)
-    
-        #fig_traj = go.Figure()
+        weather_gt = wfe.weather
+
+        # Add the demand first as its black and we want it to be on the bottom
+        fig.add_trace(go.Scatter(x=demand_gt.index, y=demand_gt,
+                                 name='Demand', mode='lines', line=dict(color='black'),
+                                    legendgroup='Observations'
+                                ), row=3, col=1)
+        
+
         for model_idx, model_name in enumerate(model_names):
             # Load and create trace for forecasted data
-            forecast = wfe.results[model_name]['forecast'][dma]
-            fig.add_trace(go.Scatter(x=forecast.index, y=forecast, name=model_name,
-                                            mode='lines', line=dict(color=px.colors.qualitative.Plotly[model_idx])),
-                                            row=2, col=1)
+            # first get the training data
+            df_list = []
+            for seed in wfe.results[model_name]['iter_1']['train'].keys():
+                df_list.append(wfe.results[model_name]['iter_1']['train'][seed]['forecast'])
+
+            # Concatenate all the seeds
+            forecast = pd.concat(df_list,
+                                keys=range(len(df_list)), 
+                                names=['Seed', 'Date'])
+            
+            # Select DMA
+            forecast = forecast[dma]
+
+            error = forecast.copy()
+            for seed in error.index.get_level_values('Seed').unique():
+                error.loc[seed] = error.loc[seed].to_numpy() - demand_gt.loc[error.loc[seed].index].to_numpy()
+
+            fig.add_trace(go.Scatter(x=error.index.get_level_values('Date').unique(), y=error.groupby('Date').median(),
+                                     name='Median-err', mode='lines', line=dict(color=px.colors.qualitative.Plotly[model_idx]),
+                                     legendgroup=model_name
+                                    ), row=2, col=1)
+
+            fig.add_trace(go.Scatter(x=forecast.index.get_level_values('Date').unique(), y=forecast.groupby('Date').median(),
+                                     name='Median-fcst', mode='lines', line=dict(color=px.colors.qualitative.Plotly[model_idx]),
+                                     legendgroup=model_name
+                                    ), row=3, col=1)
+
         
+        
+        # add the weather
+        fig.add_trace(go.Scatter(x=weather_gt.index, y=weather_gt['Temperature'],
+                                    name='Temperature', mode='lines', line=dict(color='red'),
+                                    legendgroup='Observations', legendgrouptitle=dict(text='Observations')
+                                    ), row=4, col=1)
+        fig.add_trace(go.Scatter(x=weather_gt.index, y=weather_gt['Rain'],
+                                    name='Rain', mode='lines', line=dict(color='blue'),
+                                        legendgroup='Observations'
+                                    ), row=4, col=1)
+
         # Title and axes labels
         fig.update_xaxes(title_text="Time", matches='x', row=2, col=1)
-        fig.update_yaxes(title_text="Inflow [L/s]", row=2, col=1)
+        fig.update_yaxes(title_text="Inflow Error [L/s]", row=2, col=1)
+        fig.update_xaxes(title_text="Time", matches='x', row=3, col=1)
+        fig.update_yaxes(title_text="Inflow [L/s]", row=3, col=1)
+        fig.update_xaxes(title_text="Time", matches='x', row=4, col=1)
+        fig.update_yaxes(title_text="Temperature [°C]/Rain [mm/hour]", row=4, col=1)
 
-
-        fig.update_layout(height=700)
-
+        fig.update_layout(height=1500)
+        
         return fig
     
     @callback(
@@ -153,6 +235,7 @@ def run_dashboard(wfe):
 
 def layout(wfe):
     models = list(wfe.results.keys())
+    strategies = list(wfe.resstrategies.keys())
 
     return html.Div([
             html.H1(children='Water Futures Evaluator Dashboard', style={'textAlign': 'center'}),
@@ -168,13 +251,20 @@ def layout(wfe):
                     html.Div(children='', id='dma-description')
                 ], style={'width': '30%', 'display': 'inline-block'}),
                 html.Div([ 
-                        html.Div(children='Select the models to visualize:'),
-                        dcc.Checklist(
-                            id="model-checklist",
-                            options=models,
-                            value=[models[0]],
-                            inline=True
-                        )
+                    html.Div(children='Select the models to visualize:'),
+                    dcc.Checklist(
+                        id="model-checklist",
+                        options=models,
+                        value=[models[0]],
+                        inline=True
+                    ),
+                    html.Div(children='Select the strategies to visualize:'),
+                    dcc.Checklist(
+                        id="strategy-checklist",
+                        options=strategies,
+                        value=[strategies[0]],
+                        inline=True
+                    )
                 ], style={'width': '30%', 'display': 'inline-block'})
             ]),
             html.H3(children='PI and Forecasts over Time', style={'textAlign': 'center'}),

@@ -385,7 +385,7 @@ class WaterFuturesEvaluator:
                                     f'{self.selected_strategy}__{iter}__{self.curr_phase}__.xlsx'))
 
 
-    def get_forecasts(self) -> dict(str, pd.DataFrame):
+    def get_forecasts(self) -> dict:
         forecasts = {}
         for model_name in self.selected_models:
             forecasts[model_name] = {}

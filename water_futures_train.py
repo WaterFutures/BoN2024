@@ -276,7 +276,9 @@ wavenet = {
 models_configs += [
     wavenet
 ]
-cfg['device'] = 'cpu'
+cfg['device'] = 'cuda' # if you have a compatible NVIDIA GPU
+cfg['device'] = 'mps:0' # if you have Metal acceleration on your Mac (https://developer.apple.com/metal/pytorch/)
+cfg['device'] = 'cpu' # for every other machine without GPU acceleration
 # Now, we can run the training of all these models and see how they perform
 wfe.curr_phase='train'
 wfe.n_train_seeds = 1

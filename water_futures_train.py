@@ -276,11 +276,45 @@ wavenet = {
 models_configs += [
     wavenet
 ]
-cfg['device'] = 'cuda' # if you have a compatible NVIDIA GPU
-cfg['device'] = 'mps:0' # if you have Metal acceleration on your Mac (https://developer.apple.com/metal/pytorch/)
+#cfg['device'] = 'cuda' # if you have a compatible NVIDIA GPU
+#cfg['device'] = 'mps:0' # if you have Metal acceleration on your Mac (https://developer.apple.com/metal/pytorch/)
 cfg['device'] = 'cpu' # for every other machine without GPU acceleration
 # Now, we can run the training of all these models and see how they perform
 wfe.curr_phase='train'
 wfe.n_train_seeds = 1
 for config in models_configs:
     wfe.add_model(config)
+
+selected_models_sett = [auto_rollaw,
+                   pattern_regression,
+                   lgbm_simple,
+                   lgbm_robust,
+                   xgbm_simple,
+                   lgbm_simple_with_last_week,
+                   wavenet
+                   ]
+wfe.selected_models = [config['name'] for config in selected_models_sett]
+
+# Now let's see how the different strategies to reconcile the ensemble work
+from eval.strategies.best_on_history import BestOnLastNW, BestOnTest
+
+strategies = {}
+strategies['best_on_last'] = BestOnLastNW(1)
+strategies['best_on_last_2'] = BestOnLastNW(2)
+strategies['best_on_last_3'] = BestOnLastNW(3)
+strategies['best_on_test'] = BestOnTest() # like bestonlastNw(4)
+
+from eval.strategies.weighted_averages import WeightedAverage
+import numpy as np
+
+top5 = [lgbm_robust, lgbm_simple, xgbm_simple, lgbm_simple_with_last_week, wavenet]
+
+strategies['avg_top5'] = WeightedAverage([config['name'] for config in top5], np.ones(len(top5))/len(top5))
+
+top3 = [lgbm_robust, xgbm_simple, wavenet]
+strategies['avg_top3'] = WeightedAverage([config['name'] for config in top3], np.ones(len(top3))/len(top3))
+
+strategies['lgbm_wavenet'] = WeightedAverage([lgbm_robust['name'], wavenet['name']], np.array([0.5, 0.5]))
+
+for strategy in strategies:
+    wfe.add_strategy(strategy, strategies[strategy])

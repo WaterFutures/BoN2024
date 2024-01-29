@@ -38,8 +38,8 @@ class WaterFuturesEvaluator:
         self.load_saved_results()
 
         self.strategies = {}
-        self.load_saved_strategies()
         self.resstrategies = {}
+        self.load_saved_strategies()
 
         self.selected_models = []
         self.selected_strategy = None
@@ -90,10 +90,39 @@ class WaterFuturesEvaluator:
 
                         with open(cur_file_path, 'rb') as f:
                             self.results[cur_model_name][iter][phase][seed] = pd.compat.pickle_compat.load(f)
+                            self.results[cur_model_name][iter][phase][seed]['forecast'] = self.results[cur_model_name][iter][phase][seed]['forecast'].replace({pd.NA: np.nan})
+                            self.results[cur_model_name][iter][phase][seed]['performance_indicators'] = self.results[cur_model_name][iter][phase][seed]['performance_indicators'].replace({pd.NA: np.nan})
+                            self.results[cur_model_name][iter][phase][seed]['forecast'] = self.results[cur_model_name][iter][phase][seed]['forecast'].astype('float64')
+                            self.results[cur_model_name][iter][phase][seed]['performance_indicators'] = self.results[cur_model_name][iter][phase][seed]['performance_indicators'].astype('float64')
                             
     def load_saved_strategies(self):
-        pass            
-                            
+        if not os.path.exists(os.path.join(self.results_folder,'strategies')):
+            return
+
+        strategies = os.listdir(os.path.join(self.results_folder,'strategies'))
+        for strategy_dir in strategies:
+                       
+                iters = os.listdir(os.path.join(self.results_folder,'strategies',strategy_dir))
+                for iter_dir in iters:
+
+                    files = os.listdir(os.path.join(self.results_folder,'strategies',strategy_dir,iter_dir))
+                    for cur_file in files:
+
+                        cur_file_path = os.path.join(self.results_folder,'strategies',strategy_dir,iter_dir,cur_file)
+                        cur_file_name = cur_file.split('.')[0]
+
+                        cur_strategy_name = cur_file_name.split('__')[0]
+                        iter = cur_file_name.split('__')[1]
+                        phase = cur_file_name.split('__')[2]
+
+                        if cur_strategy_name not in self.resstrategies.keys():
+                            self.resstrategies[cur_strategy_name] = {}
+
+                        if iter not in self.resstrategies[cur_strategy_name].keys():
+                            self.resstrategies[cur_strategy_name][iter] = {}
+
+                        with open(cur_file_path, 'rb') as f:
+                            self.resstrategies[cur_strategy_name][iter][phase] = pd.compat.pickle_compat.load(f)     
 
     def add_model(self, config, force=False):
         # if config is not in configs yet add it, or overwrite

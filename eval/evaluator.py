@@ -365,12 +365,12 @@ class WaterFuturesEvaluator:
 
         self.curr_phase = 'eval'
 
-        best_models = self.selected_strategy.find_best_models(testresults)
+        best_models = self.strategies[self.selected_strategy].find_best_models(testresults)
 
         # create dataframes of the forecasts with the selected models
-        forecasts = self.get_forecasts()
+        forecasts = self.get_forecasts_an_all()
 
-        demand_forecast = self.selected_strategy.combine_forecasts(forecasts)
+        demand_forecast = self.strategies[self.selected_strategy].combine_forecasts(forecasts)
 
         # demand forecast to dataframe
         demand_forecast = pd.DataFrame(demand_forecast, 
@@ -388,13 +388,16 @@ class WaterFuturesEvaluator:
                                     iter,
                                     self.curr_phase)
             if not os.path.exists(res_dir):
-                os.makedirs(res_dir)    
+                os.makedirs(res_dir)
 
-            for seed in self.forecasts[model_name].keys():
+            for seed in self.n_test_seeds:
+                l__seed = 'seed_'+str(seed)
+                self.results[model_name][iter][self.curr_phase][l__seed]['forecast'] = forecasts[model_name].loc[seed]
+
                 cur_file_path = os.path.join(res_dir,
-                                            f'{model_name}__{iter}__{self.curr_phase}__{seed}__.pkl')
+                                            f'{model_name}__{iter}__{self.curr_phase}__{l__seed}__.pkl')
                 with open(cur_file_path, 'wb') as f:
-                    pickle.dump(forecasts[model_name][seed], f)
+                    pickle.dump(self.results[model_name][iter][self.curr_phase][l__seed], f)
 
         # save the forecast of the strategy 
         res_dir = os.path.join(self.results_folder, 
@@ -414,13 +417,13 @@ class WaterFuturesEvaluator:
                                     f'{self.selected_strategy}__{iter}__{self.curr_phase}__.xlsx'))
 
 
-    def get_forecasts(self) -> dict:
+    def get_forecasts_an_all(self) -> dict:
         forecasts = {}
         for model_name in self.selected_models:
             forecasts[model_name] = {}
             df_list = []
             for seed in self.n_test_seeds:
-                df_list.append(self.get_forecast(self.configs[model_name], seed))
+                df_list.append(self.get_forecast_on_all(self.configs[model_name], seed))
 
             forecasts[model_name] = pd.concat(df_list,
                                         keys=range(len(df_list)),
@@ -428,8 +431,7 @@ class WaterFuturesEvaluator:
 
         return forecasts
     
-    def get_forecast(self, config, seed) -> pd.DataFrame:
-        l__seed = 'seed_'+str(seed)
+    def get_forecast_on_all(self, config, seed) -> pd.DataFrame:
 
         demand_train = self.demand.iloc[:WEEK_LEN*self.eval_week]
         weather_train = self.weather.iloc[:WEEK_LEN*self.eval_week]
@@ -447,6 +449,9 @@ class WaterFuturesEvaluator:
         # Apply preprocessing for weather
         for preprocessing_step in config['preprocessing']['weather']:
             weather_train = preprocessing_step.fit_transform(weather_train)
+
+        # Set the seed for the model
+        config['model'].set_seed(seed)
 
         # Train model
         config['model'].fit(demand_train, weather_train)

@@ -262,6 +262,10 @@ models_configs += [
 
 from models.wavenet import WaveNetModel, WaveNet_prepare_test_dfs, cfg
 
+#cfg['device'] = 'cuda' # if you have a compatible NVIDIA GPU
+#cfg['device'] = 'mps:0' # if you have Metal acceleration on your Mac (https://developer.apple.com/metal/pytorch/)
+cfg['device'] = 'cpu' # for every other machine without GPU acceleration
+
 wavenet = {
     'name': 'WaveNet',
     'model': WaveNetModel(cfg),
@@ -276,9 +280,7 @@ wavenet = {
 models_configs += [
     wavenet
 ]
-#cfg['device'] = 'cuda' # if you have a compatible NVIDIA GPU
-#cfg['device'] = 'mps:0' # if you have Metal acceleration on your Mac (https://developer.apple.com/metal/pytorch/)
-cfg['device'] = 'cpu' # for every other machine without GPU acceleration
+
 # Now, we can run the training of all these models and see how they perform
 wfe.curr_phase='train'
 wfe.n_train_seeds = 1
@@ -312,9 +314,34 @@ top5 = [lgbm_robust, lgbm_simple, xgbm_simple, lgbm_simple_with_last_week, waven
 strategies['avg_top5'] = WeightedAverage([config['name'] for config in top5], np.ones(len(top5))/len(top5))
 
 top3 = [lgbm_robust, lgbm_simple, wavenet]
-strategies['avg_top3'] = WeightedAverage([config['name'] for config in top3], np.ones(len(top3))/len(top3))
+strategies['avg_top3'] = WeightedAverage([config['name'] for config in top3], 
+                                         np.ones(len(top3))/len(top3))
 
-strategies['lgbm_wavenet'] = WeightedAverage([lgbm_robust['name'], wavenet['name']], np.array([0.5, 0.5]))
+strategies['lgbm_wavenet'] = WeightedAverage([lgbm_robust['name'], wavenet['name']], 
+                                             np.array([0.5, 0.5]))
+
+# As suggested by Pansos, all the gbm models should count as one model, so 1/3 to rollaverage, 1/3 to gbms 1/3 to wavenet,
+# and then 1/4 to each of the gbms 
+strategies['gbms_wavenet_arw'] = WeightedAverage([config['name'] for config in selected_models_sett],
+                                                  np.array([1/3, 0, 1/3/4, 1/3/4, 1/3/4, 1/3/4, 1/3]))
+
+# Last strategy is the weighted average where the weights are the ratio between mean and std on the training dataset
+from Utils.process_results import extract_from
+from eval.data_loading_helpers import DMAS_NAMES
+
+weights = {}
+for dma in DMAS_NAMES:
+    dma_pis = [extract_from(wfe.results[model], 1, 'train', 'performance_indicators') for model in wfe.selected_models]
+    dmas_pi_weight = np.array([(
+            dma_pis[i].groupby('DMA').mean().loc[dma,'PI3']
+                                )/(
+            dma_pis[i].groupby('DMA').std().loc[dma,'PI3']
+                                ) for i in range(len(dma_pis)) ])
+    dmas_pi_weight[1] = 0 # I don't want to consider the pattern regression
+    weights[dma] = dmas_pi_weight/dmas_pi_weight.sum()
+
+strategies['wavg_train'] = WeightedAverage([model for model in wfe.selected_models], 
+                                           weights)
 
 for strategy in strategies:
     wfe.add_strategy(strategy, strategies[strategy])

@@ -16,7 +16,7 @@ class WaterFuturesEvaluator:
         self.demand=None    # Current iteration demand dataframe
         self.weather=None   # Current iteration weather dataframe
         self.n_weeks=0      # Number of weeks in the current iteration demand dataframe
-        self.eval_week=self.n_weeks+1 # Current evaluation week (present only in the weather dataframe)
+        self.eval_week=self.n_weeks # Current evaluation week (present only in the weather dataframe) # No plus 1 as we start already couinting from 0
         
         self.n_train_weeks=52 # Parameter to decide how many weeks to use for training (52 so that we don't bias ourselves on any particolar week)
         self.n_test_weeks=4   # Parameter to decide how many weeks to use for testing (4 is basically the month of the evaluation week)
@@ -49,7 +49,7 @@ class WaterFuturesEvaluator:
 
         self.demand, self.weather = load_data(self.curr_it)
         self.n_weeks = self.demand.shape[0] // (WEEK_LEN)
-        self.eval_week = self.n_weeks+1
+        self.eval_week = self.n_weeks # this is used as index so it starts from 0
 
         self.week_start = self.n_weeks-self.n_train_weeks-self.n_test_weeks
         self.train_weeks = range(self.week_start, self.week_start+self.n_train_weeks)
@@ -91,9 +91,10 @@ class WaterFuturesEvaluator:
                         with open(cur_file_path, 'rb') as f:
                             self.results[cur_model_name][iter][phase][seed] = pd.compat.pickle_compat.load(f)
                             self.results[cur_model_name][iter][phase][seed]['forecast'] = self.results[cur_model_name][iter][phase][seed]['forecast'].replace({pd.NA: np.nan})
-                            self.results[cur_model_name][iter][phase][seed]['performance_indicators'] = self.results[cur_model_name][iter][phase][seed]['performance_indicators'].replace({pd.NA: np.nan})
                             self.results[cur_model_name][iter][phase][seed]['forecast'] = self.results[cur_model_name][iter][phase][seed]['forecast'].astype('float64')
-                            self.results[cur_model_name][iter][phase][seed]['performance_indicators'] = self.results[cur_model_name][iter][phase][seed]['performance_indicators'].astype('float64')
+                            if 'performance_indicators' in self.results[cur_model_name][iter][phase][seed].keys():
+                                self.results[cur_model_name][iter][phase][seed]['performance_indicators'] = self.results[cur_model_name][iter][phase][seed]['performance_indicators'].replace({pd.NA: np.nan})
+                                self.results[cur_model_name][iter][phase][seed]['performance_indicators'] = self.results[cur_model_name][iter][phase][seed]['performance_indicators'].astype('float64')
                             
     def load_saved_strategies(self):
         if not os.path.exists(os.path.join(self.results_folder,'strategies')):
@@ -368,7 +369,7 @@ class WaterFuturesEvaluator:
         best_models = self.strategies[self.selected_strategy].find_best_models(testresults)
 
         # create dataframes of the forecasts with the selected models
-        forecasts = self.get_forecasts_an_all()
+        forecasts = self.get_forecasts_an_all(best_models)
 
         demand_forecast = self.strategies[self.selected_strategy].combine_forecasts(forecasts)
 
@@ -377,61 +378,72 @@ class WaterFuturesEvaluator:
                                        index=self.weather.index[-WEEK_LEN:], 
                                         columns=self.demand.columns)
 
-        # Save forecast and no PI this time!! We don't have ground truth as is the evaluation week
-        # save the forecast of the models 
-        # Check the folder exists
-        iter = 'iter_'+str(self.curr_it)
-        for model_name in self.selected_models:
-            res_dir = os.path.join(self.results_folder, 
-                                    'models',
-                                    model_name, 
-                                    iter,
-                                    self.curr_phase)
-            if not os.path.exists(res_dir):
-                os.makedirs(res_dir)
-
-            for seed in range(self.n_test_seeds):
-                l__seed = 'seed_'+str(seed)
-                self.results[model_name][iter][self.curr_phase][l__seed]['forecast'] = forecasts[model_name].loc[seed]
-
-                cur_file_path = os.path.join(res_dir,
-                                            f'{model_name}__{iter}__{self.curr_phase}__{l__seed}__.pkl')
-                with open(cur_file_path, 'wb') as f:
-                    pickle.dump(self.results[model_name][iter][self.curr_phase][l__seed], f)
-
+        l__iter = 'iter_'+str(self.curr_it)
         # save the forecast of the strategy 
         res_dir = os.path.join(self.results_folder, 
                                 'strategies',
                                 self.selected_strategy, 
-                                iter)
+                                l__iter)
         if not os.path.exists(res_dir):
             os.makedirs(res_dir)
 
         cur_file_path = os.path.join(res_dir,
-                                    f'{self.selected_strategy}__{iter}__{self.curr_phase}__.pkl')
+                                    f'{self.selected_strategy}__{l__iter}__{self.curr_phase}__.pkl')
         with open(cur_file_path, 'wb') as f:
             pickle.dump(demand_forecast, f)
 
         # save also the dataframe as an excel file
         demand_forecast.to_excel(os.path.join(res_dir,
-                                    f'{self.selected_strategy}__{iter}__{self.curr_phase}__.xlsx'))
+                                    f'{self.selected_strategy}__{l__iter}__{self.curr_phase}__.xlsx'))
 
 
-    def get_forecasts_an_all(self) -> dict:
-        forecasts = {}
-        for model_name in self.selected_models:
-            forecasts[model_name] = {}
-            df_list = []
+    def get_forecasts_an_all(self, best_models) -> dict:
+        forecasts = {} # Returns a dictionary of dataframes with the forecasts of the selected models for each DMA and multiple seeds (index)
+        l__iter = 'iter_'+str(self.curr_it)
+
+        for model_name in best_models:
+
+            # Check the folder where I save the models results exists  
+            res_dir = os.path.join(self.results_folder, 
+                                    'models',
+                                    model_name, 
+                                    l__iter,
+                                    self.curr_phase)
+            if not os.path.exists(res_dir):
+                os.makedirs(res_dir)
+
+            df_list = [] # df for multiple seeds in the same model
             for seed in range(self.n_test_seeds):
-                df_list.append(self.get_forecast_on_all(self.configs[model_name], seed))
+                l__seed = 'seed_'+str(seed)
+
+                # if it exists already it was loaded in the constructor, so use that because it means the previous evaluation went wrong 
+                if self.curr_phase in self.results[model_name][l__iter].keys() and l__seed in self.results[model_name][l__iter][self.curr_phase].keys() and 'forecast' in self.results[model_name][l__iter][self.curr_phase][l__seed].keys():
+                    df_list.append(self.results[model_name][l__iter][self.curr_phase][l__seed]['forecast']) 
+                    # I append a dataframe with Date as index and DMA as columns
+
+                # otherwise evaluate it
+                else:
+                    df_list.append(self.get_forecast_on_all(self.configs[model_name], seed)) # from here I get the same dataframe with Date as index and DMA as columns
+                    
+                    # save it in results in case one of the other models breaks the run
+                    if self.curr_phase not in self.results[model_name][l__iter].keys():
+                        self.results[model_name][l__iter][self.curr_phase] = {}
+                    self.results[model_name][l__iter][self.curr_phase][l__seed] = dict(forecast=df_list[-1])
+
+                    cur_file_path = os.path.join(res_dir,
+                                            f'{model_name}__{l__iter}__{self.curr_phase}__{l__seed}__.pkl')
+                    with open(cur_file_path, 'wb') as f:
+                        pickle.dump(self.results[model_name][l__iter][self.curr_phase][l__seed], f)
 
             forecasts[model_name] = pd.concat(df_list,
                                         keys=range(len(df_list)),
                                         names=['Seed', 'Date'])
-
+            
+            # Return the promised dictionary of double index (seed and date) dataframes 
         return forecasts
     
-    def get_forecast_on_all(self, config, seed) -> pd.DataFrame:
+    def get_forecast_on_all(self, config, seed: int) -> pd.DataFrame:
+        print(f'Evaluating {config["name"]} with seed {seed} in {self.curr_phase} phase')
 
         demand_train = self.demand.iloc[:WEEK_LEN*self.eval_week]
         weather_train = self.weather.iloc[:WEEK_LEN*self.eval_week]
@@ -475,7 +487,9 @@ class WaterFuturesEvaluator:
 
         # Forecast next week
         demand_forecast = config['model'].forecast(demand_test, weather)
-        demand_forecast = pd.DataFrame(demand_forecast, index=weather.index, columns=demand_train.columns)
+        demand_forecast = pd.DataFrame(demand_forecast, 
+                                       index=self.weather.iloc[WEEK_LEN*self.eval_week: WEEK_LEN*(self.eval_week+1)].index, 
+                                       columns=self.demand.columns)
 
         # Transform forecast back into original unit
         for preprocessing_step in reversed(config['preprocessing']['demand']):

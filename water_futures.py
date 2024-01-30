@@ -345,3 +345,12 @@ strategies['wavg_train'] = WeightedAverage([model for model in wfe.selected_mode
 
 for strategy in strategies:
     wfe.add_strategy(strategy, strategies[strategy])
+
+# here we look at the strategies in thesame dashboard and see how they perform
+
+# then we decide which one to go
+wfe.selected_strategy = 'avg_top5'
+
+# run the selected models on the test 
+wfe.n_test_seeds = 3
+wfe.forecast_next()

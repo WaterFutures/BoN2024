@@ -390,7 +390,7 @@ class WaterFuturesEvaluator:
             if not os.path.exists(res_dir):
                 os.makedirs(res_dir)
 
-            for seed in self.n_test_seeds:
+            for seed in range(self.n_test_seeds):
                 l__seed = 'seed_'+str(seed)
                 self.results[model_name][iter][self.curr_phase][l__seed]['forecast'] = forecasts[model_name].loc[seed]
 
@@ -422,7 +422,7 @@ class WaterFuturesEvaluator:
         for model_name in self.selected_models:
             forecasts[model_name] = {}
             df_list = []
-            for seed in self.n_test_seeds:
+            for seed in range(self.n_test_seeds):
                 df_list.append(self.get_forecast_on_all(self.configs[model_name], seed))
 
             forecasts[model_name] = pd.concat(df_list,

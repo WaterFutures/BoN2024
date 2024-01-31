@@ -2,6 +2,7 @@
 
 ## Prerequisites
 - Python Version: The models for BoN 2024 were trained using **Python 3.11.6**. Ensure you have this version installed. You can download it from Python 3.11.6 Download (https://www.python.org/downloads/release/python-3116/).
+- For Mac Users: Homebrew installed (https://brew.sh)
 
 ## Setting Up a Virtual Environment
 To manage dependencies effectively, it's recommended to set up a virtual environment (`venv`). This isolates the project dependencies from your global Python installation. Follow these steps:
@@ -36,29 +37,31 @@ To manage dependencies effectively, it's recommended to set up a virtual environ
     `source /path/to/new/virtual/environment_name/bin/activate`.
     Ensure you use the correct path where your virtual environment is located.
 
-3. Install Open
+3. Install OpenMP library
+  - `brew install libomp`
 
-3. Install Required Modules:
+4. Install Required Modules:
   - Browse to the code directory of the Water-Futures BoN2024 codebase
     `cd /path/to/the/code/BoN2024`
   - Install all necessary modules by running:
     `pip install -r requirements_mac.txt`
 
 ### Manual installation
-1. Follow steps 1 and 2 
+1. Follow steps 1 and 2 from the previous section based on your system.
 
-- pytorch 
-- tensorflow 
-- lightbm (Visual Studio for windows ) (for mac use )
-- darts[notorch]
-- jupyter 
-- plotly 
-- dash 
-- openpyxl
-- adtk
-- metpy
-- dm-tree
-- torchmetrics
+2. Install the following libraries using the instructions for your machine on each website:
+- pytorch (https://pytorch.org)
+- tensorflow (https://www.tensorflow.org/install/pip)
+- lightbm (https://pypi.org/project/lightgbm/) -> `pip install lightgbm`
+- darts (https://github.com/unit8co/darts/blob/master/INSTALL.md) -> `pip install "u8darts[notorch]"`
+- jupyter (https://jupyter.org/install) -> `pip install jupyter`
+- plotly (https://plotly.com/python/getting-started/) -> `pip install plotly==5.18.0`
+- dash (https://dash.plotly.com/installation) -> `pip install dash`
+- openpyxl (https://pypi.org/project/openpyxl/) -> `pip insall openpyxl`
+- adtk (https://pypi.org/project/adtk/) -> `pip install adtk`
+- metpy (https://pypi.org/project/MetPy/) -> `pip install metpy`
+- dm-tree (https://pypi.org/project/dm-tree/) -> `pip install dm-tree`
+- torchmetrics (https://pypi.org/project/torchmetrics/) -> `pip install torchmetrics`
     
 ## Running the Code
 After setting up the virtual environment and installing the dependencies, you're ready to run the code. 

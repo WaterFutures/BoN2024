@@ -6,29 +6,66 @@
 ## Setting Up a Virtual Environment
 To manage dependencies effectively, it's recommended to set up a virtual environment (`venv`). This isolates the project dependencies from your global Python installation. Follow these steps:
 
+### Windows (with Visual Studio>2015 installed)
 1. Create a Virtual Environment:
-   - On Windows open Command Prompt (press `Windows Key + R`, then type `cmd` and press Enter) or a shell environment on Unix systems.
-   - Create a new virtual environment by running:
-     `python -m venv /path/to/new/virtual/environment_name`
-     Replace `/path/to/new/virtual/environment_name` with your desired directory path.
+  - On Windows open Command Prompt (press `Windows Key + R`, then type `cmd` and press Enter).
+  - Create a new virtual environment by running:
+    `python -m venv /path/to/new/virtual/environment_name`
+    Replace `/path/to/new/virtual/environment_name` with your desired directory path.
 
 2. Activate the Virtual Environment:
-   - Activate your virtual environment by running:
-     `/path/to/new/virtual/environment_name/Scripts/activate` on Windows
-    `source /path/to/new/virtual/environment_name/bin/activate` on Mac and Linux.
-     Ensure you use the correct path where your virtual environment is located.
+  - Activate your virtual environment by running:
+    `/path/to/new/virtual/environment_name/Scripts/activate`.
+    Ensure you use the correct path where your virtual environment is located.
 
 3. Install Required Modules:
-   - Install all necessary modules by running:
-     `pip install -r /code_path/requirements.txt`
-     Note 1: `/code_path/requirements.txt` is the path to the `requirements.txt` file in the BoN 2024 codebase, not in the virtual environment directory.
-     Note 2: For Windows installations, please remove tensorflow-macos==2.15.0 from `requirements.txt` file.
+  - Browse to the code directory of the Water-Futures BoN2024 codebase
+    `cd /path/to/the/code/BoN2024`
+  - Install all necessary modules by running:
+    `pip install -r requirements_windows.txt`
 
+### Mac with Apple Silicon
+1. Create a Virtual Environment:
+  - Open a terminal.
+  - Create a new virtual environment by running:
+    `python -m venv /path/to/new/virtual/environment_name`
+    Replace `/path/to/new/virtual/environment_name` with your desired directory path.
+
+2. Activate the Virtual Environment:
+  - Activate your virtual environment by running:
+    `source /path/to/new/virtual/environment_name/bin/activate`.
+    Ensure you use the correct path where your virtual environment is located.
+
+3. Install Open
+
+3. Install Required Modules:
+  - Browse to the code directory of the Water-Futures BoN2024 codebase
+    `cd /path/to/the/code/BoN2024`
+  - Install all necessary modules by running:
+    `pip install -r requirements_mac.txt`
+
+### Manual installation
+1. Follow steps 1 and 2 
+
+- pytorch 
+- tensorflow 
+- lightbm (Visual Studio for windows ) (for mac use )
+- darts[notorch]
+- jupyter 
+- plotly 
+- dash 
+- openpyxl
+- adtk
+- metpy
+- dm-tree
+- torchmetrics
+    
 ## Running the Code
 After setting up the virtual environment and installing the dependencies, you're ready to run the code. 
 Run the `water_futures.py` file or using Jupyter Notebook, select the correct Kernel and run `water_futures.ipynb`.
 
-# GPU Acceleration
+## Additional Notes
+### GPU Acceleration
 BoN 2024 can leverage NVIDIA GPU for enhanced performance. If your system does not have an NVIDIA GPU, modify the configuration in the 'water_futures.xx' file:
 
 Change Line 265 from:
@@ -36,9 +73,9 @@ cfg['device'] = 'cuda'
 to:
 cfg['device'] = 'cpu'
 
-## Note: the Metal acceleration on Mac with M1 or M2 is not working at the time of the submission. Use 'cpu' to ensure a correct running on Apple devices, too. 
+#### Note: the Metal acceleration on Mac with M1 or M2 is not working at the time of the submission. Use 'cpu' to ensure a correct running on Apple devices, too. 
 
-# Important Note
+## Important Note
 The virtual environment for this project includes both TensorFlow and PyTorch. Be aware that this can consume significant storage space.
 
 # Results

@@ -1,0 +1,6 @@
+.ipynb_checkpoints/
+.DS_Store 
+__pycache__/
+
+# Exclude ray artifacts
+**/__best_trials__/

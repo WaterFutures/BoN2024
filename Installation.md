@@ -35,7 +35,7 @@ cfg['device'] = 'cuda'
 to:
 cfg['device'] = 'cpu'
 
-## Note: the Metal accelaration on Mac with M1 or M2 is not working at the time of the submission. Use 'cpu' to ensure a correct running on Apple devices, too. 
+## Note: the Metal acceleration on Mac with M1 or M2 is not working at the time of the submission. Use 'cpu' to ensure a correct running on Apple devices, too. 
 
 # Important Note
 The virtual environment for this project includes both TensorFlow and PyTorch. Be aware that this can consume significant storage space.

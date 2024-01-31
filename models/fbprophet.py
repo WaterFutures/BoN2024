@@ -17,7 +17,7 @@ class Fbprophet(Model):
 
         self.dmas = demands.columns
         for dma in self.dmas:
-            model =  Pf(daily_seasonality=True,weekly_seasonality=True,yearly_seasonality=True,country_holidays="IT",verbose=False)
+            model =  Pf(daily_seasonality=True,weekly_seasonality=True,yearly_seasonality=True,country_holidays="IT")
             data = demands[dma].rename_axis('ds').reset_index(name='y')
             series = TimeSeries.from_dataframe(data, 'ds', 'y')
 

@@ -22,6 +22,7 @@ To manage dependencies effectively, it's recommended to set up a virtual environ
    - Install all necessary modules by running:
      `pip install -r /code_path/requirements.txt`
      Note: `/code_path/requirements.txt` is the path to the `requirements.txt` file in the BoN 2024 codebase, not in the virtual environment directory.
+     Note: For Windows installations, please remove tensorflow-macos==2.15.0 from `requirements.txt` file.
 
 ## Running the Code
 After setting up the virtual environment and installing the dependencies, you're ready to run the code. 

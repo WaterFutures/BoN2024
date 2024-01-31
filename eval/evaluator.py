@@ -60,15 +60,19 @@ class WaterFuturesEvaluator:
         if not os.path.exists(os.path.join(self.results_folder,'models')):
             return
         models = os.listdir(os.path.join(self.results_folder,'models'))
+        models = [m for m in models if os.path.isdir(os.path.join(self.results_folder, 'models', m)) ]
         for mode_dir in models:
         
             iters = os.listdir(os.path.join(self.results_folder,'models',mode_dir))
+            iters = [m for m in iters if os.path.isdir(os.path.join(self.results_folder, 'models', mode_dir, m)) ]
             for iter_dir in iters:
 
                 phases = os.listdir(os.path.join(self.results_folder,'models',mode_dir,iter_dir))
+                phases = [m for m in phases if os.path.isdir(os.path.join(self.results_folder, 'models', mode_dir, iter_dir, m)) ]
                 for phase_dir in phases:
 
                     files = os.listdir(os.path.join(self.results_folder,'models',mode_dir,iter_dir,phase_dir))
+                    files = [fi for fi in files if os.path.isfile(os.path.join(self.results_folder, 'models', mode_dir, iter_dir, phase_dir, fi)) and fi.split('.')[-1] == 'pkl']
                     for cur_file in files:
 
                         cur_file_path = os.path.join(self.results_folder,'models',mode_dir,iter_dir,phase_dir,cur_file)
@@ -101,12 +105,15 @@ class WaterFuturesEvaluator:
             return
 
         strategies = os.listdir(os.path.join(self.results_folder,'strategies'))
+        strategies = [m for m in strategies if os.path.isdir(os.path.join(self.results_folder, 'strategies', m)) ]
         for strategy_dir in strategies:
                        
                 iters = os.listdir(os.path.join(self.results_folder,'strategies',strategy_dir))
+                iters = [m for m in iters if os.path.isdir(os.path.join(self.results_folder, 'strategies', strategy_dir, m)) ]
                 for iter_dir in iters:
 
                     files = os.listdir(os.path.join(self.results_folder,'strategies',strategy_dir,iter_dir))
+                    files = [fi for fi in files if os.path.isfile(os.path.join(self.results_folder, 'strategies', strategy_dir, iter_dir, fi)) and fi.split('.')[-1] == 'pkl']
                     for cur_file in files:
 
                         cur_file_path = os.path.join(self.results_folder,'strategies',strategy_dir,iter_dir,cur_file)

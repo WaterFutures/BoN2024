@@ -162,6 +162,22 @@ models_configs += [
     pattern_regression_daily
 ]
 
+from models.fbprophet import Fbprophet
+
+prophet = {
+    'name': 'FbProphet',
+    'model': Fbprophet(),
+    'preprocessing': {
+        'demand': [],
+        'weather': []
+    },
+    'deterministic': True
+}
+
+models_configs += [
+    prophet
+]
+
 from models.LGBM import LGBMrobust, LGBMsimple
 from preprocessing.advanced_transforms import LGBM_demand_features, LGBM_impute_nan_demand
 from preprocessing.advanced_transforms import LGBM_impute_nan_weather, LGBM_weather_features
@@ -347,6 +363,7 @@ for strategy in strategies:
     wfe.add_strategy(strategy, strategies[strategy])
 
 # here we look at the strategies in thesame dashboard and see how they perform
+# use the water_futures_dash.py script to run the dashboard
 
 # then we decide which one to go
 wfe.selected_strategy = 'avg_top5'
@@ -354,3 +371,5 @@ wfe.selected_strategy = 'avg_top5'
 # run the selected models on the test 
 wfe.n_test_seeds = 3
 wfe.forecast_next()
+
+# Finally you can run again the dashboard to see the results

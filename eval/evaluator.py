@@ -30,7 +30,10 @@ class WaterFuturesEvaluator:
 
         self.configs = {} # Dictionary of configs for each model
 
-        self.results_folder = os.path.join(pathlib.Path(__file__).parent.parent.resolve(), 'data', 'results')
+        data_folder = os.getenv('BON2024_DATA_FOLDER')
+        if data_folder is None:
+            data_folder = os.path.join(pathlib.Path(__file__).parent.parent.resolve(), 'data')
+        self.results_folder = os.path.join(data_folder, 'results')
         if not os.path.exists(self.results_folder):
             os.makedirs(self.results_folder)
        

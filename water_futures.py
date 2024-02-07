@@ -373,3 +373,7 @@ wfe.n_test_seeds = 3
 wfe.forecast_next()
 
 # Finally you can run again the dashboard to see the results
+
+# When you get the new data (InflowData_2.xlsx and WeatherData_2.xlsx) you can run the following code to update the models
+wfe.next_iter()
+wfe.forecast_next()

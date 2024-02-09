@@ -5,12 +5,16 @@ import os
 import pathlib
 import pickle
 import tqdm
+from dotenv import load_dotenv
 
 from eval.data_loading_helpers import load_data, DMAS_NAMES, WEEK_LEN
 
 class WaterFuturesEvaluator:
 
     def __init__(self):
+        # Load environment variables from .env file
+        load_dotenv()
+
         self.n_iter=4   # Number of iterations of the whole competition
         self.curr_it=0  # Current iteration
         self.demand=None    # Current iteration demand dataframe
@@ -33,6 +37,7 @@ class WaterFuturesEvaluator:
         data_folder = os.getenv('BON2024_DATA_FOLDER')
         if data_folder is None:
             data_folder = os.path.join(pathlib.Path(__file__).parent.parent.resolve(), 'data')
+        print(f'Using data folder: {data_folder}')
         self.results_folder = os.path.join(data_folder, 'results')
         if not os.path.exists(self.results_folder):
             os.makedirs(self.results_folder)

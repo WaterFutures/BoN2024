@@ -65,41 +65,42 @@ def run_dashboard(wfe):
             # self.results[model_name][iter][phase][seed]['forecast'] -> pd.Dataframe(Date, DMA)
 
             # Start with the train phase
-            df_list = []
-            for seed in wfe.results[model_name]['iter_1']['train'].keys():
-                df_list.append(wfe.results[model_name]['iter_1']['train'][seed]['performance_indicators'])
+            if show_train:
+                df_list = []
+                for seed in wfe.results[model_name]['iter_1']['train'].keys():
+                    df_list.append(wfe.results[model_name]['iter_1']['train'][seed]['performance_indicators'])
+                    
+                # Concatenate all the seeds
+                testres = pd.concat(df_list,
+                            keys=range(len(df_list)), 
+                                names=['Seed', 'Test week', 'DMA'])
                 
-            # Concatenate all the seeds
-            testres = pd.concat(df_list,
-                           keys=range(len(df_list)), 
-                            names=['Seed', 'Test week', 'DMA'])
-            
-            # Select DMA and PI
-            testres = testres.loc[(slice(None), slice(None), dma), pi]
-            #drop DMA level
-            testres = testres.droplevel(2)
-            
-            # Here we have a result for each week so let's track the corresponding Monday
-            testres_x = testres.index.get_level_values('Test week').unique().map(lambda x: wfe.weather.index[0]+pd.Timedelta(days=x*7))
-            
-            fig.add_trace(go.Scatter(x=testres_x, y=testres.groupby('Test week').median(),
-                                     name='Median-PI', mode='lines', line=dict(color=gcolor),
-                                     legendgroup=model_name+' (Train)', legendgrouptitle=dict(text=model_name+' (Train)'), showlegend=True
-                                     ), row=1, col=1)
-            
-            if testres.index.get_level_values('Seed').unique().shape[0] > 1 and qt > 0:
-                fig.add_trace(go.Scatter(x=testres_x, y=testres.groupby('Test week').quantile(0.5 + qt),
-                                        name='Upper-PI', mode='lines', line=dict(color=gcolor),
-                                        legendgroup=model_name+' (Train)',
-                                        fill=None, showlegend=False
+                # Select DMA and PI
+                testres = testres.loc[(slice(None), slice(None), dma), pi]
+                #drop DMA level
+                testres = testres.droplevel(2)
+                
+                # Here we have a result for each week so let's track the corresponding Monday
+                testres_x = testres.index.get_level_values('Test week').unique().map(lambda x: wfe.weather.index[0]+pd.Timedelta(days=x*7))
+                
+                fig.add_trace(go.Scatter(x=testres_x, y=testres.groupby('Test week').median(),
+                                        name='Median-PI', mode='lines', line=dict(color=gcolor),
+                                        legendgroup=model_name+' (Train)', legendgrouptitle=dict(text=model_name+' (Train)'), showlegend=True
                                         ), row=1, col=1)
+                
+                if testres.index.get_level_values('Seed').unique().shape[0] > 1 and qt > 0:
+                    fig.add_trace(go.Scatter(x=testres_x, y=testres.groupby('Test week').quantile(0.5 + qt),
+                                            name='Upper-PI', mode='lines', line=dict(color=gcolor),
+                                            legendgroup=model_name+' (Train)',
+                                            fill=None, showlegend=False
+                                            ), row=1, col=1)
 
-                fig.add_trace(go.Scatter(x=testres_x, y=testres.groupby('Test week').quantile(0.5 - qt),
-                                        name='Uncertainty', mode='lines', line=dict(color=gcolor),
-                                        legendgroup=model_name+' (Train)', showlegend=True,
-                                        #fill='tonexty', fillcolor=gcolor
-                                        ), row=1, col=1)
-                
+                    fig.add_trace(go.Scatter(x=testres_x, y=testres.groupby('Test week').quantile(0.5 - qt),
+                                            name='Uncertainty', mode='lines', line=dict(color=gcolor),
+                                            legendgroup=model_name+' (Train)', showlegend=True,
+                                            #fill='tonexty', fillcolor=gcolor
+                                            ), row=1, col=1)
+                    
             # Now the test and eval phase for all iterations
             df_list = []
             for l__iter in wfe.results[model_name].keys():
@@ -166,26 +167,26 @@ def run_dashboard(wfe):
                                         legendgroup=model_name, showlegend=True,
                                         #fill='tonexty', fillcolor=gcolor
                                         ), row=1, col=1)
-                
-        for i, strategy in enumerate(strat_names):
-            # Read current performance indicators
 
-            # The structure is self.resstrategies[strategy][iter][phase]['performance_indicators']-> pd.Dataframe(DMA, PI)
-            # self.resstrategies[strategy][iter][phase]['forecast'] -> pd.Dataframe(Date, DMA)
-            testres = wfe.resstrategies[strategy]['iter_1']['train']['performance_indicators']
-            # Select DMA and PI
-            testres = testres.loc[(slice(None), dma), pi]
-            # Here we have a result for each week so let's track the corresponding Monday
-            testres_x = testres.index.get_level_values('Test week').unique().map(lambda x: wfe.weather.index[0]+pd.Timedelta(days=x*7))
+        if show_train:       
+            for i, strategy in enumerate(strat_names):
+                # Read current performance indicators
 
-            # Add like it was a forecasts, but use dashed lines and a different family of colors
-            fig.add_trace(go.Scatter(x=testres_x, y = testres,
-                                     name=strategy+'-PI', mode='lines', 
-                                     line=dict(color=px.colors.qualitative.Pastel[i], dash='dash'),
-                                     legendgroup=strategy, legendgrouptitle=dict(text=strategy),
-                                     showlegend=True
-                                    ), row=1, col=1)
+                # The structure is self.resstrategies[strategy][iter][phase]['performance_indicators']-> pd.Dataframe(DMA, PI)
+                # self.resstrategies[strategy][iter][phase]['forecast'] -> pd.Dataframe(Date, DMA)
+                testres = wfe.resstrategies[strategy]['iter_1']['train']['performance_indicators']
+                # Select DMA and PI
+                testres = testres.loc[(slice(None), dma), pi]
+                # Here we have a result for each week so let's track the corresponding Monday
+                testres_x = testres.index.get_level_values('Test week').unique().map(lambda x: wfe.weather.index[0]+pd.Timedelta(days=x*7))
 
+                # Add like it was a forecasts, but use dashed lines and a different family of colors
+                fig.add_trace(go.Scatter(x=testres_x, y = testres,
+                                        name=strategy+'-PI', mode='lines', 
+                                        line=dict(color=px.colors.qualitative.Pastel[i], dash='dash'),
+                                        legendgroup=strategy, legendgrouptitle=dict(text=strategy),
+                                        showlegend=True
+                                        ), row=1, col=1)
 
         # y axis label
         fig.update_yaxes(title_text=PI_UNITS[pi], row=1, col=1)
@@ -206,52 +207,53 @@ def run_dashboard(wfe):
             gcolor = px.colors.qualitative.Plotly[model_idx]
             # Load and create trace for forecasted data
             # first get the training data
-            df_list = []
-            for seed in wfe.results[model_name]['iter_1']['train'].keys():
-                df_list.append(wfe.results[model_name]['iter_1']['train'][seed]['forecast'])
+            if show_train:
+                df_list = []
+                for seed in wfe.results[model_name]['iter_1']['train'].keys():
+                    df_list.append(wfe.results[model_name]['iter_1']['train'][seed]['forecast'])
 
-            # Concatenate all the seeds
-            forecast = pd.concat(df_list,
-                                keys=range(len(df_list)), 
-                                names=['Seed', 'Date'])
-            
-            # Select DMA
-            forecast = forecast[dma]
+                # Concatenate all the seeds
+                forecast = pd.concat(df_list,
+                                    keys=range(len(df_list)), 
+                                    names=['Seed', 'Date'])
+                
+                # Select DMA
+                forecast = forecast[dma]
 
-            error = forecast.copy()
-            for seed in error.index.get_level_values('Seed').unique():
-                error.loc[seed] = error.loc[seed].to_numpy() - demand_gt.loc[error.loc[seed].index].to_numpy()
+                error = forecast.copy()
+                for seed in error.index.get_level_values('Seed').unique():
+                    error.loc[seed] = error.loc[seed].to_numpy() - demand_gt.loc[error.loc[seed].index].to_numpy()
 
-            fig.add_trace(go.Scatter(x=error.index.get_level_values('Date').unique(), y=error.groupby('Date').median(),
-                                     name='Median-err', mode='lines', line=dict(color=gcolor),
-                                     legendgroup=model_name+' (Train)', showlegend=True
-                                    ), row=2, col=1)
-
-            fig.add_trace(go.Scatter(x=forecast.index.get_level_values('Date').unique(), y=forecast.groupby('Date').median(),
-                                     name='Median-fcst', mode='lines', line=dict(color=gcolor),
-                                     legendgroup=model_name+' (Train)', showlegend=True
-                                    ), row=3, col=1)
-
-            if forecast.index.get_level_values('Seed').unique().shape[0] > 1 and qt > 0:
-                fig.add_trace(go.Scatter(x=error.index.get_level_values('Date').unique(), y=error.groupby('Date').quantile(0.5 + qt),
-                                        name='Upper-err', mode='lines', line=dict(color=gcolor),
-                                        legendgroup=model_name+' (Train)', showlegend=False
+                fig.add_trace(go.Scatter(x=error.index.get_level_values('Date').unique(), y=error.groupby('Date').median(),
+                                        name='Median-err', mode='lines', line=dict(color=gcolor),
+                                        legendgroup=model_name+' (Train)', showlegend=True
                                         ), row=2, col=1)
 
-                fig.add_trace(go.Scatter(x=error.index.get_level_values('Date').unique(), y=error.groupby('Date').quantile(0.5 - qt),
-                                        name='Lower-err', mode='lines', line=dict(color=gcolor),
-                                        legendgroup=model_name+' (Train)', showlegend=False
-                                        ), row=2, col=1)
-
-                fig.add_trace(go.Scatter(x=forecast.index.get_level_values('Date').unique(), y=forecast.groupby('Date').quantile(0.5 + qt),
-                                        name='Upper-fcst', mode='lines', line=dict(color=gcolor),
-                                        legendgroup=model_name+' (Train)', showlegend=False
+                fig.add_trace(go.Scatter(x=forecast.index.get_level_values('Date').unique(), y=forecast.groupby('Date').median(),
+                                        name='Median-fcst', mode='lines', line=dict(color=gcolor),
+                                        legendgroup=model_name+' (Train)', showlegend=True
                                         ), row=3, col=1)
 
-                fig.add_trace(go.Scatter(x=forecast.index.get_level_values('Date').unique(), y=forecast.groupby('Date').quantile(0.5 - qt),
-                                        name='Lower-fcst', mode='lines', line=dict(color=gcolor),
-                                        legendgroup=model_name+' (Train)', showlegend=False
-                                        ), row=3, col=1)
+                if forecast.index.get_level_values('Seed').unique().shape[0] > 1 and qt > 0:
+                    fig.add_trace(go.Scatter(x=error.index.get_level_values('Date').unique(), y=error.groupby('Date').quantile(0.5 + qt),
+                                            name='Upper-err', mode='lines', line=dict(color=gcolor),
+                                            legendgroup=model_name+' (Train)', showlegend=False
+                                            ), row=2, col=1)
+
+                    fig.add_trace(go.Scatter(x=error.index.get_level_values('Date').unique(), y=error.groupby('Date').quantile(0.5 - qt),
+                                            name='Lower-err', mode='lines', line=dict(color=gcolor),
+                                            legendgroup=model_name+' (Train)', showlegend=False
+                                            ), row=2, col=1)
+
+                    fig.add_trace(go.Scatter(x=forecast.index.get_level_values('Date').unique(), y=forecast.groupby('Date').quantile(0.5 + qt),
+                                            name='Upper-fcst', mode='lines', line=dict(color=gcolor),
+                                            legendgroup=model_name+' (Train)', showlegend=False
+                                            ), row=3, col=1)
+
+                    fig.add_trace(go.Scatter(x=forecast.index.get_level_values('Date').unique(), y=forecast.groupby('Date').quantile(0.5 - qt),
+                                            name='Lower-fcst', mode='lines', line=dict(color=gcolor),
+                                            legendgroup=model_name+' (Train)', showlegend=False
+                                            ), row=3, col=1)
                 
             # now for the test and eval phase
             df_list = []

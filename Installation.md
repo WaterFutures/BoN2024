@@ -62,7 +62,14 @@ To manage dependencies effectively, it's recommended to set up a virtual environ
 - metpy (https://pypi.org/project/MetPy/) -> `pip install metpy`
 - dm-tree (https://pypi.org/project/dm-tree/) -> `pip install dm-tree`
 - torchmetrics (https://pypi.org/project/torchmetrics/) -> `pip install torchmetrics`
-    
+
+## Download the data
+If you want to produce new models and results for reproducibility, you can skip this part: the code is already set up to use the *data* directory in this project. 
+
+On the other hand, if you downloaded this repo to investiagte the results produced by our team, follow the following steps:
+1. download the data folder from Zenodo (#TBD).
+2. change the value of the environmental variable `BON2024_DATA_FOLDER` in the `.env` file present in this repository to the **full path** of the downloaded data folder.
+
 ## Running the Code
 After setting up the virtual environment and installing the dependencies, you're ready to run the code. 
 Run the `water_futures.py` file or using Jupyter Notebook, select the correct Kernel and run `water_futures.ipynb`.

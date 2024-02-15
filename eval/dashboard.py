@@ -297,6 +297,7 @@ def run_dashboard(wfe):
                 mask = error['Seed'] == seed
                 error.loc[mask, dma] -= demand_gt.loc[error.loc[mask, 'Date']].values
             error.set_index(['Seed', 'Date'], inplace=True)
+            error = error[dma] # back to series for plotting
             
             edates = error.index.get_level_values('Date').unique()
             fig.add_trace(go.Scatter(x=edates, y=error.groupby('Date').median(),

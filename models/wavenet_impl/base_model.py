@@ -180,6 +180,7 @@ class BaseModel(torch.nn.Module):
             self.model_bias = torch.nn.Parameter(torch.zeros(1, self.out_dim, 1, dtype=torch.float32), requires_grad=False).to(self.config['device'])
             
         if self.config['device'] == 'mps:0':
+            # when on Mac, line 195 is not working properly, so we move back to cpu the data because there it works
             mean_bias = MultioutputWrapper(MeanMetric(), self.out_dim).to('cpu')
         else:
             mean_bias = MultioutputWrapper(MeanMetric(), self.out_dim).to(self.config['device'])        

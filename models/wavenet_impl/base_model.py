@@ -179,15 +179,21 @@ class BaseModel(torch.nn.Module):
         if not hasattr(self, 'model_bias'):
             self.model_bias = torch.nn.Parameter(torch.zeros(1, self.out_dim, 1, dtype=torch.float32), requires_grad=False).to(self.config['device'])
             
-        mean_bias = MultioutputWrapper(MeanMetric(), self.out_dim).to(self.config['device'])
+        if self.config['device'] == 'mps:0':
+            mean_bias = MultioutputWrapper(MeanMetric(), self.out_dim).to('cpu')
+        else:
+            mean_bias = MultioutputWrapper(MeanMetric(), self.out_dim).to(self.config['device'])        
         
         for data in dataset:
             inputs = self.prepare_inputs(data)
             pred, _, _ = self.predict_steps(inputs['x'], inputs['known_features'], steps=1, residual=inputs['residual'])
             target_mask = inputs['target_mask'].float()
-            mean_bias((inputs['target'] - pred).squeeze(-1), weight=target_mask.squeeze(-1))
+            if self.config['device'] == 'mps:0':
+                mean_bias((inputs['target'] - pred).squeeze(-1).to('cpu'), weight=target_mask.squeeze(-1).to('cpu'))
+            else:
+                mean_bias((inputs['target'] - pred).squeeze(-1), weight=target_mask.squeeze(-1))
         
-        self.model_bias += mean_bias.compute().unsqueeze(0).unsqueeze(-1)
+        self.model_bias += mean_bias.compute().to(self.config['device']).unsqueeze(0).unsqueeze(-1)
         print(self.model_bias.squeeze())
     
     def forecast(self, demand_data, weather_data):

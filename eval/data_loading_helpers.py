@@ -25,13 +25,13 @@ def adjust_first_monday(df):
     # Make Data start at first monday
     return df.loc['2021-01-04':]
 
-def load_demand_weather(iter=1):
+def load_demand_weather(iter_idx=1):
     data_folder = os.getenv('BON2024_DATA_FOLDER')
     if data_folder is None:
         data_folder = 'data'
 
     # Load the excel file
-    rawdata = pd.read_excel(os.path.join(data_folder, 'original', 'InflowData_'+str(iter)+'.xlsx') )
+    rawdata = pd.read_excel(os.path.join(data_folder, 'original', 'InflowData_'+str(iter_idx)+'.xlsx') )
 
     # Make the first column to datetime format
     rawdata.iloc[:,0] = pd.to_datetime(rawdata.iloc[:,0], format='%d/%m/%Y %H:%M')
@@ -44,7 +44,7 @@ def load_demand_weather(iter=1):
     demand.columns = DMAS_NAMES
 
     # Load weather data
-    rawdata = pd.read_excel(os.path.join(data_folder, 'original', 'WeatherData_'+str(iter)+'.xlsx') )
+    rawdata = pd.read_excel(os.path.join(data_folder, 'original', 'WeatherData_'+str(iter_idx)+'.xlsx') )
 
     #Same stuff for weather data
     rawdata.iloc[:,0] = pd.to_datetime(rawdata.iloc[:,0], format='%d/%m/%Y %H:%M')
@@ -56,19 +56,8 @@ def load_demand_weather(iter=1):
 
     return demand, weather
 
-def load_data(iter=1):
-    demand, weather = load_demand_weather(1)
-    for i in range(2, iter+1):
-        cur_demand, cur_weather = load_demand_weather(i)
-
-        weather = pd.concat([weather, cur_weather])
-
-        # For the demand we have a missing week that was the last evaluation week in between the two iterations
-        nan_df = pd.DataFrame(np.nan,columns=demand.columns,index=np.arange(WEEK_LEN))
-        nan_df['Date']=pd.date_range(demand.index[-1]+pd.Timedelta(hours=1),periods=WEEK_LEN,freq='H')
-        nan_df.set_index('Date',inplace=True)
-
-        demand = pd.concat([demand, nan_df, cur_demand]) 
+def load_data(iter_idx=1):
+    demand, weather = load_demand_weather(iter_idx)
 
     # Adjust data
     demand = adjust_summer_time(demand)

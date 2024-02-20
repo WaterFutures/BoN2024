@@ -5,12 +5,16 @@ import os
 import pathlib
 import pickle
 import tqdm
+from dotenv import load_dotenv
 
 from eval.data_loading_helpers import load_data, DMAS_NAMES, WEEK_LEN
 
 class WaterFuturesEvaluator:
 
     def __init__(self):
+        # Load environment variables from .env file
+        load_dotenv()
+
         self.n_iter=4   # Number of iterations of the whole competition
         self.curr_it=0  # Current iteration
         self.demand=None    # Current iteration demand dataframe
@@ -30,7 +34,11 @@ class WaterFuturesEvaluator:
 
         self.configs = {} # Dictionary of configs for each model
 
-        self.results_folder = os.path.join(pathlib.Path(__file__).parent.parent.resolve(), 'data', 'results')
+        data_folder = os.getenv('BON2024_DATA_FOLDER')
+        if data_folder is None:
+            data_folder = os.path.join(pathlib.Path(__file__).parent.parent.resolve(), 'data')
+        print(f'Using data folder: {data_folder}')
+        self.results_folder = os.path.join(data_folder, 'results')
         if not os.path.exists(self.results_folder):
             os.makedirs(self.results_folder)
        
@@ -146,10 +154,6 @@ class WaterFuturesEvaluator:
         if not os.path.exists(res_dir):
             os.makedirs(res_dir)
 
-        # Check force condition and skip computation if desired
-        if (not force) and (config['name'] in self.results.keys()) and (iter in self.results[config['name']].keys()) and (self.curr_phase in self.results[config['name']][iter].keys()):
-            return
-
         seed_range = [0]
         if self.curr_phase == 'train':
             if not config['deterministic']:  
@@ -165,6 +169,12 @@ class WaterFuturesEvaluator:
         # Evaluate model
         for seed in seed_range:
             l__seed = 'seed_'+str(seed)
+
+            # Check force condition and skip computation if desired
+            if (not force) and (config['name'] in self.results.keys()) and (iter in self.results[config['name']].keys()) and (self.curr_phase in self.results[config['name']][iter].keys()) and (l__seed in self.results[config['name']][iter][self.curr_phase].keys()):
+                print(f'{config["name"]} with seed {seed} in {self.curr_phase} phase already evaluated, skipping...')
+                continue
+
             print(f'Evaluating {config["name"]} with seed {seed} in {self.curr_phase} phase')
             performance_indicators, forecast = self.eval_model(config, week_range, seed)
             if config['name'] not in self.results.keys():
@@ -402,6 +412,9 @@ class WaterFuturesEvaluator:
         # save also the dataframe as an excel file
         demand_forecast.to_excel(os.path.join(res_dir,
                                     f'{self.selected_strategy}__{l__iter}__{self.curr_phase}__.xlsx'))
+        
+        print(f'Forecast for the evaluation week {self.curr_it} saved in '
+              +os.path.join(res_dir,f'{self.selected_strategy}__{l__iter}__{self.curr_phase}__.xlsx'))
 
 
     def get_forecasts_an_all(self, best_models) -> dict:

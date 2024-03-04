@@ -377,3 +377,6 @@ wfe.forecast_next()
 # When you get the new data (InflowData_2.xlsx and WeatherData_2.xlsx) you can run the following code to update the models
 wfe.next_iter()
 wfe.forecast_next()
+
+wfe.next_iter()
+wfe.forecast_next()

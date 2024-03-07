@@ -380,3 +380,6 @@ wfe.forecast_next()
 
 wfe.next_iter()
 wfe.forecast_next()
+
+wfe.next_iter()
+wfe.forecast_next()

@@ -1,0 +1,63 @@
+# Complete Runtimes
+This file contains th results of the training process in the last iteration of the competition. 
+This have been performed on a MacBook Air with M1 (8-core CPU, 8-core GPU, and 16 GB of memory).
+GPU acceleraration using Metal was available (see commit 26e0d40b69f340a88fc3c9d0af186ce2f3a08ece). 
+
+---
+Evaluating AutoRollingAverage with seed 0 in test phase
+100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 4/4 [00:00<00:00, 11.16it/s]
+Evaluating AutoRollingAverage with seed 1 in test phase
+100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 4/4 [00:00<00:00, 11.50it/s]
+Evaluating AutoRollingAverage with seed 2 in test phase
+100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 4/4 [00:00<00:00, 12.53it/s]
+Evaluating PatternRegression with seed 0 in test phase
+100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 4/4 [00:01<00:00,  3.19it/s]
+Evaluating LGBMsimple with seed 0 in test phase
+100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 4/4 [26:15<00:00, 394.00s/it]
+Evaluating LGBMsimple with seed 1 in test phase
+100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 4/4 [26:11<00:00, 392.92s/it]
+Evaluating LGBMsimple with seed 2 in test phase
+100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 4/4 [26:11<00:00, 392.89s/it]
+Evaluating LGBMrobust with seed 0 in test phase
+100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 4/4 [47:05<00:00, 706.48s/it]
+Evaluating LGBMrobust with seed 1 in test phase
+100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 4/4 [47:09<00:00, 707.50s/it]
+Evaluating LGBMrobust with seed 2 in test phase
+100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 4/4 [47:32<00:00, 713.03s/it]
+Evaluating XGBMsimple with seed 0 in test phase
+100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 4/4 [26:07<00:00, 391.81s/it]
+Evaluating XGBMsimple with seed 1 in test phase
+100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 4/4 [25:58<00:00, 389.67s/it]
+Evaluating XGBMsimple with seed 2 in test phase
+100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 4/4 [25:53<00:00, 388.50s/it]
+Evaluating LGBMsimple_with_last week with seed 0 in test phase
+100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 4/4 [26:14<00:00, 393.59s/it]
+Evaluating LGBMsimple_with_last week with seed 1 in test phase
+100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 4/4 [26:11<00:00, 392.86s/it]
+Evaluating LGBMsimple_with_last week with seed 2 in test phase
+100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 4/4 [26:13<00:00, 393.40s/it]
+Evaluating WaveNet with seed 0 in test phase
+100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 4/4 [5:11:14<00:00, 4668.64s/it]
+Evaluating WaveNet with seed 1 in test phase
+100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 4/4 [5:13:17<00:00, 4699.45s/it]
+Evaluating WaveNet with seed 2 in test phase
+100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 4/4 [5:21:04<00:00, 4816.09s/it]
+Evaluating XGBMsimple with seed 0 in eval phase
+Evaluating XGBMsimple with seed 1 in eval phase
+Evaluating XGBMsimple with seed 2 in eval phase
+Evaluating WaveNet with seed 0 in eval phase
+Evaluating WaveNet with seed 1 in eval phase
+Evaluating WaveNet with seed 2 in eval phase
+Evaluating LGBMrobust with seed 0 in eval phase
+Evaluating LGBMrobust with seed 1 in eval phase
+Evaluating LGBMrobust with seed 2 in eval phase
+Evaluating LGBMsimple with seed 0 in eval phase
+Evaluating LGBMsimple with seed 1 in eval phase
+Evaluating LGBMsimple with seed 2 in eval phase
+Evaluating LGBMsimple_with_last week with seed 0 in eval phase
+Evaluating LGBMsimple_with_last week with seed 1 in eval phase
+Evaluating LGBMsimple_with_last week with seed 2 in eval phase
+Forecast for the evaluation week 4 saved in data/results/strategies/avg_top5/iter_4/avg_top5__iter_4__eval__.xlsx
+---
+
+Assuming that for the eval phases the runtimes are equal to those of the test phases, we obtain a total of around 1652 minutes (27 hours). 

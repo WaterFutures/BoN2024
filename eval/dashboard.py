@@ -188,10 +188,9 @@ def run_dashboard(wfe):
                 fig.add_trace(go.Scatter(x=testres_x, y = testres,
                                         name=strategy+'-PI', mode='lines', 
                                         line=dict(color=px.colors.qualitative.Pastel[i], dash='dash'),
-                                        legendgroup=strategy, legendgrouptitle=dict(text=strategy),
+                                        legendgroup=strategy, legendgrouptitle=dict(text=strategy+' (Train)'),
                                         showlegend=True
                                         ), row=1, col=1)
-
     
         ### Trajectory error
         # Load and create trace for ground truth data
@@ -213,7 +212,8 @@ def run_dashboard(wfe):
                 gname = model_name+' (Train)'
                 df_list = []
                 for seed in wfe.results[model_name]['iter_1']['train'].keys():
-                    df_list.append(wfe.results[model_name]['iter_1']['train'][seed]['forecast'])
+                    # Select the DMA here already
+                    df_list.append(wfe.results[model_name]['iter_1']['train'][seed]['forecast'][dma])
 
                 # Concatenate all the seeds
                 forecast = pd.concat(df_list,
@@ -221,7 +221,7 @@ def run_dashboard(wfe):
                                     names=['Seed', 'Date'])
                 
                 # Select DMA
-                forecast = forecast[dma]
+                # forecast = forecast[dma]
 
                 error = forecast.copy()
                 for seed in error.index.get_level_values('Seed').unique():
@@ -268,7 +268,7 @@ def run_dashboard(wfe):
                     if phase in wfe.results[model_name][l__iter]:
                         seed_list = []
                         for seed in wfe.results[model_name][l__iter][phase].keys():
-                            seed_list.append(wfe.results[model_name][l__iter][phase][seed]['forecast'])
+                            seed_list.append(wfe.results[model_name][l__iter][phase][seed]['forecast'][dma])
                         # Concatenate all the seeds
                         df_list.append(pd.concat(seed_list,
                                         keys=range(len(seed_list)), 
@@ -278,7 +278,7 @@ def run_dashboard(wfe):
             forecast = pd.concat(df_list)
             
             # Select DMA
-            forecast = forecast[dma]
+            #forecast = forecast[dma]
             
             error = forecast.copy()
             
@@ -427,10 +427,9 @@ def run_dashboard(wfe):
                         #print(f'Model {model} has {pi}={models_score[model_idx]} on {dma} and week {tw}')
                         
                     # rank them by score and add them to the total competiion score (ranking)
-                    
-                    # models_ranking=some sort of ranking 
+                    models_ranking = np.argsort(models_score)
+                    total_models_ranking += models_ranking
 
-                    #total_models_ranking+=models_ranking
         total_models_ranking=total_models_ranking/(len(DMAS_NAMES)*len(PI_DESCRIPTIONS)*len(test_weeks_m))
 
         # now let's do the same but adding the strategies in the competition
@@ -450,22 +449,21 @@ def run_dashboard(wfe):
                         #print(f'Model {model} has {pi}={models_score[model_idx]} on {dma} and week {tw}')
 
                     # rank them by score and add them to the total competiion score (ranking)
-                    
-                    # models_ranking=some sort of ranking 
-
-                    #total_mers_ranking+=models_ranking    
+                    models_ranking = np.argsort(models_score)
+                    total_mers_ranking += models_ranking
+   
         total_mers_ranking=total_mers_ranking/(len(DMAS_NAMES)*len(PI_DESCRIPTIONS)*len(test_weeks_s))
         
         # Now return something like '#1 - Model x (1,345)' 
-        final_models_ranking=range(len(models)) 
+        final_models_ranking=np.argsort(total_models_ranking)
         models_ranked_list=[]
         for idx, model_idx in enumerate(final_models_ranking):
-            models_ranked_list.append(f'#{idx+1} - {models[model_idx]} ({total_models_ranking[model_idx]})')
+            models_ranked_list.append(f'#{idx+1} - {models[model_idx]} ({total_models_ranking[model_idx]+1:.2f})')
         
-        final_mers_ranking=range(len(mers))
+        final_mers_ranking=np.argsort(total_mers_ranking)
         mers_ranked_list=[]
         for idx, mers_idx, in enumerate(final_mers_ranking):
-            mers_ranked_list.append(f'#{idx+1} - {mers[mers_idx]} ({total_mers_ranking[mers_idx]})')
+            mers_ranked_list.append(f'#{idx+1} - {mers[mers_idx]} ({total_mers_ranking[mers_idx]+1:.2f})')
 
         table_data=[]
         for idx in range(len(mers_ranked_list)): #because mers is for sure longer

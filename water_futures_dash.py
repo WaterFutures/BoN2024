@@ -1,4 +1,3 @@
-import eval
 from eval.evaluator import WaterFuturesEvaluator
 from eval.dashboard import run_dashboard
 

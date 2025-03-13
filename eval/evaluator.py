@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 
 from eval.data_loading_helpers import load_data, DMAS_NAMES, WEEK_LEN
 
-class WaterFuturesEvaluator:
+class WaterFuturesEvaluatorBWDF:
 
     def __init__(self):
         # Load environment variables from .env file

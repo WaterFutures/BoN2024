@@ -1,10 +1,10 @@
 # prepare the workspace
 import eval
-from eval.evaluator import WaterFuturesEvaluator
+from eval.evaluator import WaterFuturesEvaluatorBWDF
 from eval.dashboard import run_dashboard
 
 # prepare the evaluator
-wfe = WaterFuturesEvaluator()
+wfe = WaterFuturesEvaluatorBWDF()
 
 # Prepare the evaluator for the next iteration
 wfe.next_iter()

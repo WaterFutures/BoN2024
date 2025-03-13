@@ -4,3 +4,5 @@ __pycache__/
 
 # Exclude ray artifacts
 **/__best_trials__/
+
+.env

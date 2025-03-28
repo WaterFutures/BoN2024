@@ -10,7 +10,6 @@ from wflib.evaluator import WaterFuturesEvaluator as WFE
 print("Running the evaluation of the models")
 
 wfe = WFE(data_dir= os.path.join('paper', 'data'),
-          forecasting_horizon=24*7, # 1 week
           testing_starts_after_n_horizons_with_n=52, # We use at least 1 year of data for training the very first model that we test
           ignore_previously_saved_results=False
             )

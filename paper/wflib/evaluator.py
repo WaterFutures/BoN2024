@@ -13,7 +13,6 @@ class WaterFuturesEvaluator():
     """
 
     def __init__(self, data_dir,
-                 forecasting_horizon,
                  testing_starts_after_n_horizons_with_n=1,
                  ignore_previously_saved_results=False ):
         """
@@ -28,7 +27,7 @@ class WaterFuturesEvaluator():
         self.target_df= target_observations
         self.exog_df= exogenous_observations
         
-        self.forecasting_horizon = forecasting_horizon
+        self.forecasting_horizon = 24*7 # 1 week
         self.n_horizon_test_starts = testing_starts_after_n_horizons_with_n
         
         self.models = {}
@@ -38,6 +37,10 @@ class WaterFuturesEvaluator():
         self.strategies = {}
         if not ignore_previously_saved_results:
             self.load_saved_strategies()
+
+    @property
+    def demand(self):
+        return self.target_df
 
     def load_bwdf_final_data(self, data_dir):
         
@@ -101,7 +104,7 @@ class WaterFuturesEvaluator():
         # Upload the models
         for model_dir in models_dirs:
             model_fcs = pickle.load(open(os.path.join(self.results_dir,'models',model_dir, f'{model_dir}__forecasts.pkl'), 'rb'))
-            self.models[model_dir] = dict(forecasts= model_fcs, config= {})
+            self.models[model_dir] = dict(forecasts= model_fcs.infer_objects(), config= {})
             
     def load_saved_strategies(self):
         """
@@ -219,7 +222,7 @@ class WaterFuturesEvaluator():
             # and validation, and (ii) during forecasting, the model will use the last 'forecasting_horizon' steps to make the forecast.
             for seed in seeds:
                 seed = int(seed)
-                
+
                 self.models[model_name]['config']['model'].set_seed(seed)
 
                 self.models[model_name]['config']['model'].fit(target_df__4train, exog_df__4train)

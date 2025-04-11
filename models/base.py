@@ -1,6 +1,5 @@
 import random
 import numpy as np
-import tensorflow as tf
 
 class Model:
 
@@ -17,4 +16,9 @@ class Model:
         self.seed = seed
         random.seed(seed)
         np.random.seed(seed)
-        tf.random.set_seed(seed)
+       
+        try:
+            import tensorflow as tf
+            tf.random.set_seed(seed)
+        except ImportError:
+            pass

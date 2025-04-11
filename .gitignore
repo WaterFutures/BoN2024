@@ -6,3 +6,4 @@ __pycache__/
 **/__best_trials__/
 
 .env
+paper/data

@@ -1,5 +1,7 @@
 from wflib.evaluator import WaterFuturesEvaluator as WFE
+
 from baselines_impl import RollingAverageWeek, ExpWeightedRollingWeek, AutoRollingAverageWeek
+
 from preprocessing.impute_and_fill import FillZero, FillAvgWeek
 
 wfe = WFE()

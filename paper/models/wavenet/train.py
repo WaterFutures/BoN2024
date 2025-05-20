@@ -1,7 +1,10 @@
 from wflib.evaluator import WaterFuturesEvaluator as WFE
 
-from wavenet_impl import WaveNetModel, ENCODERS
+from wavenet_impl import WaveNetModel
 
+from wavenet_impl import ENCODERS # Input features, even if not in preprocessing module
+
+# Other imports:
 import yaml
 
 wfe = WFE()

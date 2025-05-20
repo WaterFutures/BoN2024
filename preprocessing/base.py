@@ -1,8 +1,3 @@
-import numpy as np
-import pandas as pd
-from sklearn.preprocessing import StandardScaler
-
-
 class Preprocessing:
 
     def __init__(self):

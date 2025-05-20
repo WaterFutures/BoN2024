@@ -12,12 +12,11 @@ class WaterFuturesEvaluator():
     This is a more generic evaluator that can be used with custom approaches.
     """
 
-    def __init__(self, data_dir,
-                 testing_starts_after_n_horizons_with_n=1,
-                 ignore_previously_saved_results=False ):
+    def __init__(self):
         """
         
         """
+        data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
         self.results_dir = os.path.join(data_dir, 'output')
         if not os.path.exists(self.results_dir):
             os.makedirs(self.results_dir)
@@ -28,15 +27,13 @@ class WaterFuturesEvaluator():
         self.exog_df= exogenous_observations
         
         self.forecasting_horizon = 24*7 # 1 week
-        self.n_horizon_test_starts = testing_starts_after_n_horizons_with_n
+        self.n_horizon_test_starts = 52 # We start after a year of data
         
         self.models = {}
-        if not ignore_previously_saved_results:
-            self.load_saved_models()
+        self.load_saved_models()
 
         self.strategies = {}
-        if not ignore_previously_saved_results:
-            self.load_saved_strategies()
+        self.load_saved_strategies()
 
     @property
     def demand(self):

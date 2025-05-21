@@ -5,7 +5,9 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-DATE__l='date'
+from .data_utils import load_bwdf_final_data
+
+DATE='date'
 
 class WaterFuturesEvaluator():
     """
@@ -21,7 +23,7 @@ class WaterFuturesEvaluator():
         if not os.path.exists(self.results_dir):
             os.makedirs(self.results_dir)
 
-        target_observations, exogenous_observations = self.load_bwdf_final_data(data_dir)
+        target_observations, exogenous_observations = load_bwdf_final_data(data_dir)
         
         self.target_df= target_observations
         self.exog_df= exogenous_observations
@@ -38,53 +40,6 @@ class WaterFuturesEvaluator():
     @property
     def demand(self):
         return self.target_df
-
-    def load_bwdf_final_data(self, data_dir):
-        
-        demands = pd.read_excel(os.path.join(data_dir, 'input', 'Inflows.xlsx'))
-        weather = pd.read_excel(os.path.join(data_dir, 'input', 'Weather.xlsx'))
-
-        # basic preprocessing to set the first column as the index with name date
-        def preprocess_date_columns(df):
-            df.iloc[:,0] = pd.to_datetime(df.iloc[:,0], format='%d/%m/%Y %H:%M')
-            df = df.rename(columns={df.columns[0]: DATE__l})
-            df = df.set_index(DATE__l)
-            return df
-
-        demands = preprocess_date_columns(demands)
-        weather = preprocess_date_columns(weather)
-
-        # Set the units of the columns for the weather data
-        demands.columns = ['DMA_A', 'DMA_B', 'DMA_C', 'DMA_D', 'DMA_E', 'DMA_F', 'DMA_G', 'DMA_H', 'DMA_I', 'DMA_J']
-        weather.columns = ['Rain', 'Temperature', 'Humidity', 'Windspeed']
-        weather.attrs['units'] = {'Rain':'mm', 'Temperature':'°C', 'Humidity':'%', 'Windspeed':'km/h'}
-
-        # Adjust the dataset to account for the missing hour in summer time and average the duplicates
-        def adjust_summer_time(df):
-            days_missing_hour = ['2021-03-28', '2022-03-27', '2023-03-26']
-
-            # Copy 1AM and 3AM data to 2AM for days missing 2AM
-            for day in days_missing_hour:
-                df = pd.concat([df, df.loc[f'{day} 01:00:00':f'{day} 03:00:00']
-                            .reset_index()
-                            .assign(date=pd.to_datetime(f'{day} 02:00:00'))
-                            .set_index(DATE__l)]) \
-                                .sort_index()
-
-            # Average 2AM values for days with duplicates
-            return df.groupby(DATE__l).mean().sort_index()
-
-        demands = adjust_summer_time(demands)
-        weather = adjust_summer_time(weather)
-
-        # Adjust the dataset to start on the first Monday
-        def adjust_first_monday(df):
-            return df.loc['2021-01-04':]
-
-        demands = adjust_first_monday(demands)
-        weather = adjust_first_monday(weather)
-
-        return demands, weather
     
     def load_saved_models(self):
         """
@@ -170,7 +125,7 @@ class WaterFuturesEvaluator():
         
         # Create a empty (nans) DataFrame with the same shape of the observations and the multiple seeds to do.
         # This will be filled with the forecasts for each seed.
-        fcst_df = pd.DataFrame(index=pd.MultiIndex.from_product([seeds, self.target_df.index], names=['seed', DATE__l]),
+        fcst_df = pd.DataFrame(index=pd.MultiIndex.from_product([seeds, self.target_df.index], names=['seed', DATE]),
                             columns=self.target_df.columns)
 
         # The model will be evaluated on the testing set, starting from the n-th horizon until the end,

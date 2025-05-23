@@ -12,9 +12,7 @@ wfe = WFE()
 with open('config.yml') as f:
     cfg = yaml.safe_load(f)
 
-# Set the device (CPU/GPU) and keep only the encoder features set to true
-cfg['device'] = 'cuda'
-cfg['encoders'] = [ k for k in ENCODERS if cfg.pop(k) ]
+cfg['device']='cuda'
 
 wfe.add_model_configuration({
     'name': 'wavenet',
